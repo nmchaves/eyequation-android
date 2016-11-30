@@ -11,8 +11,6 @@ bin/
 gen/
 PauseButton.java
 PseudoTranslator.java
-TranslatorBing.java
-TranslatorGoogle.java
 actionscript/
 release/
 android-integration/

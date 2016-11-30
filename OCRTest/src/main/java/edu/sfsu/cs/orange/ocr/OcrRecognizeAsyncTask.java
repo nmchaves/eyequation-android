@@ -30,6 +30,11 @@ import com.googlecode.leptonica.android.ReadFile;
 import com.googlecode.tesseract.android.ResultIterator;
 import com.googlecode.tesseract.android.TessBaseAPI;
 import com.googlecode.tesseract.android.TessBaseAPI.PageIteratorLevel;
+
+import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
+
+import static android.R.id.message;
+
 /**
  * Class to send OCR requests to the OCR engine in a separate thread, send a success/failure message,
  * and dismiss the indeterminate progress dialog box. Used for non-continuous mode OCR only.
@@ -60,6 +65,16 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
   protected Boolean doInBackground(Void... arg0) {
     long start = System.currentTimeMillis();
     Bitmap bitmap = activity.getCameraManager().buildLuminanceSource(data, width, height).renderCroppedGreyscaleBitmap();
+
+    // TODO: modify the detectObjects function in ImageProcessingService so that it returns
+    // the rectangles around each equation. Then process those rectangles here (e.g. pass them
+    // to tesseract, draw them, etc.)
+    Log.d("ABCDEFGHIJKLM", "before!");
+    Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(bitmap);
+    ImageProccessingService.getInstance().detectObjects(gray);
+    Log.d("ABCDEFGHIJKLM", "after!");
+
+
     String textResult;
 
     //      if (PERFORM_FISHER_THRESHOLDING) {

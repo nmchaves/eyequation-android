@@ -20,7 +20,9 @@ import edu.sfsu.cs.orange.ocr.CaptureActivity;
 import edu.sfsu.cs.orange.ocr.R;
 import edu.sfsu.cs.orange.ocr.camera.CameraManager;
 import edu.sfsu.cs.orange.ocr.OcrResult;
+import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
 
+import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -117,6 +119,7 @@ final class CaptureActivityHandler extends Handler {
       case R.id.ocr_decode_failed:
         state = State.PREVIEW;
         activity.setShutterButtonClickable(true);
+
         Toast toast = Toast.makeText(activity.getBaseContext(), "OCR failed. Please try again.", Toast.LENGTH_SHORT);
         toast.setGravity(Gravity.TOP, 0, 0);
         toast.show();

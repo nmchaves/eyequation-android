@@ -62,7 +62,12 @@ import android.widget.Toast;
 
 import com.googlecode.tesseract.android.TessBaseAPI;
 
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+
 import edu.sfsu.cs.orange.ocr.camera.CameraManager;
+import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
 import edu.sfsu.cs.orange.ocr.camera.ShutterButton;
 import edu.sfsu.cs.orange.ocr.language.LanguageCodeHelper;
 import edu.sfsu.cs.orange.ocr.language.TranslateAsyncTask;
@@ -79,7 +84,25 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   ShutterButton.OnShutterButtonListener {
 
   private static final String TAG = CaptureActivity.class.getSimpleName();
-  
+
+  // Needed for loading OpenCV using OpenCV Manager
+  private BaseLoaderCallback mOvenCVLoaderCallback = new BaseLoaderCallback(this) {
+    @Override
+    public void onManagerConnected(int status) {
+      switch (status) {
+        case LoaderCallbackInterface.SUCCESS: {
+          Log.i(TAG, "OpenCV loaded successfully");
+        }
+        break;
+        default: {
+          super.onManagerConnected(status);
+        }
+        break;
+      }
+    }
+  };
+
+
   // Note: These constants will be overridden by any default values defined in preferences.xml.
   
   /** ISO 639-3 language code indicating the default recognition language. */
@@ -214,6 +237,13 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   @Override
   public void onCreate(Bundle icicle) {
     super.onCreate(icicle);
+
+
+    if (!OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_11, this, mOvenCVLoaderCallback)) {
+      Log.e(TAG, "Cannot connect to OpenCV Manager");
+    }
+
+
     
     checkFirstLaunch();
     
@@ -722,7 +752,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
    */
   boolean handleOcrDecode(OcrResult ocrResult) {
     lastResult = ocrResult;
-    
+
     // Test whether the result is null
     if (ocrResult.getText() == null || ocrResult.getText().equals("")) {
       Toast toast = Toast.makeText(this, "OCR failed. Please try again.", Toast.LENGTH_SHORT);
@@ -751,6 +781,14 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     } else {
       bitmapImageView.setImageBitmap(lastBitmap);
     }
+
+
+
+
+
+
+
+
 
     // Display the recognized text
     TextView sourceLanguageTextView = (TextView) findViewById(R.id.source_language_text_view);
@@ -1091,9 +1129,12 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       
       // Retrieve from preferences, and set in this Activity, the language preferences
       PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
-      setSourceLanguage(prefs.getString(PreferencesActivity.KEY_SOURCE_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_SOURCE_LANGUAGE_CODE));
-      setTargetLanguage(prefs.getString(PreferencesActivity.KEY_TARGET_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_TARGET_LANGUAGE_CODE));
-      isTranslationActive = prefs.getBoolean(PreferencesActivity.KEY_TOGGLE_TRANSLATION, false);
+      //setSourceLanguage(prefs.getString(PreferencesActivity.KEY_SOURCE_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_SOURCE_LANGUAGE_CODE));
+      //setTargetLanguage(prefs.getString(PreferencesActivity.KEY_TARGET_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_TARGET_LANGUAGE_CODE));
+      setSourceLanguage("eng");
+      setTargetLanguage("es");
+
+    isTranslationActive = prefs.getBoolean(PreferencesActivity.KEY_TOGGLE_TRANSLATION, false);
       
       // Retrieve from preferences, and set in this Activity, the capture mode preference
       if (prefs.getBoolean(PreferencesActivity.KEY_CONTINUOUS_PREVIEW, CaptureActivity.DEFAULT_TOGGLE_CONTINUOUS)) {
