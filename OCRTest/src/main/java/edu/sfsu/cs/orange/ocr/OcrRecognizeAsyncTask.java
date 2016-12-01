@@ -17,6 +17,7 @@ package edu.sfsu.cs.orange.ocr;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -30,6 +31,8 @@ import com.googlecode.leptonica.android.ReadFile;
 import com.googlecode.tesseract.android.ResultIterator;
 import com.googlecode.tesseract.android.TessBaseAPI;
 import com.googlecode.tesseract.android.TessBaseAPI.PageIteratorLevel;
+
+import org.opencv.core.Point;
 
 import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
 
@@ -63,6 +66,11 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
 
   @Override
   protected Boolean doInBackground(Void... arg0) {
+    Integer ulx;
+    Integer uly;
+    Integer brx;
+    Integer bry;
+
     long start = System.currentTimeMillis();
     Bitmap bitmap = activity.getCameraManager().buildLuminanceSource(data, width, height).renderCroppedGreyscaleBitmap();
 
@@ -71,7 +79,18 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
     // to tesseract, draw them, etc.)
     Log.d("ABCDEFGHIJKLM", "before!");
     Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(bitmap);
-    ImageProccessingService.getInstance().detectObjects(gray);
+    List<List<Point>> rectList = ImageProccessingService.getInstance().detectObjects(gray);
+    // test out slicing image
+    if (rectList.size() > 0) {
+      ulx = (int) rectList.get(0).get(0).x;
+      uly = (int) rectList.get(0).get(0).y;
+      brx = (int) rectList.get(0).get(1).x;
+      bry = (int) rectList.get(0).get(1).y;
+      // crop by bounding box, but leave some padding space
+      Log.d("Cropping at", ulx.toString() + " " +uly.toString());
+      bitmap = Bitmap.createBitmap(bitmap, Math.max(ulx - 10,0), Math.max(uly - 10,0),
+              Math.min(brx + 15,bitmap.getWidth())- ulx , Math.min(bry + 15,bitmap.getHeight())- uly );
+    }
     Log.d("ABCDEFGHIJKLM", "after!");
 
 
