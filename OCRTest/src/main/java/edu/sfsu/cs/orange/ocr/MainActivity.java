@@ -78,7 +78,8 @@ public class MainActivity extends Activity {
     private String characterBlacklist;
     private String characterWhitelist;
 
-    private String sourceLanguageCodeOcr; // ISO 639-3 language code
+    // TODO: clean this up
+    private String sourceLanguageCodeOcr = "eng"; // ISO 639-3 language code
     private String sourceLanguageReadable; // Language name, for example, "English"
 
     private CameraManager cameraManager;
@@ -97,16 +98,16 @@ public class MainActivity extends Activity {
 
         // Attempt to load OpenCV
         if (!OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_11, this, mOvenCVLoaderCallback)) {
-            Toast toast = Toast.makeText(getApplicationContext(), "Failed to load OpenCV! Chack that you have OpenCV Manager.", Toast.LENGTH_LONG);
+            Toast toast = Toast.makeText(getApplicationContext(), "Failed to load OpenCV! Check that you have OpenCV Manager.", Toast.LENGTH_LONG);
             toast.show();
         }
 
+        sourceLanguageReadable = LanguageCodeHelper.getOcrLanguageName(this, sourceLanguageCodeOcr);
         cameraManager = new CameraManager(getApplication());
 
         isEngineReady = false;
 
         // Initialize the OCR engine
-        setSourceLanguage("eng");
         File storageDirectory = getStorageDirectory();
         if (storageDirectory != null) {
             initOcrEngine(storageDirectory, sourceLanguageCodeOcr, sourceLanguageReadable);
@@ -245,7 +246,6 @@ public class MainActivity extends Activity {
             hideCameraPreview();
 
             // Start processing the image
-            Log.d(TAG, "BEFore!");
             processImage(data, currentFrame);
 
         }
@@ -262,27 +262,17 @@ public class MainActivity extends Activity {
     }
 
     private void processImage(byte[] data, Bitmap imgBitmap) {
-        //new OcrRecognizeAsyncTask(this, baseApi, imgBitmap, imgBitmap.getWidth(), imgBitmap.getHeight())
-          //      .execute();
-        Log.d(TAG, "INSIDE");
-        if(cameraManager == null) {
+
+        /*if(cameraManager == null) {
             Log.d(TAG, "ERROR!!");
             return;
-        }
+        }*/
 
-        // TODO: this is not working
         Bitmap newBitmap = imgBitmap;
         /*
         CameraUtils
                 .buildLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight())
                 .renderCroppedGreyscaleBitmap();*/
-
-        //        Pix thresholdedImage = Binarize.otsuAdaptiveThreshold(ReadFile.readBitmap(bitmap), 48, 48, 9, 9, 0.1F);
-        //        Log.e("OcrRecognizeAsyncTask", "thresholding completed. converting to bmp. size:" + bitmap.getWidth() + "x" + bitmap.getHeight());
-        //        bitmap = WriteFile.writeBitmap(thresholdedImage);
-        /*Bitmap newBitmap = Imgproc.adaptiveThreshold(
-
-        );*/
 
         /*
         Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
@@ -344,7 +334,7 @@ public class MainActivity extends Activity {
         // Display the name of the OCR engine we're initializing in the indeterminate progress dialog box
         indeterminateDialog = new ProgressDialog(this);
         indeterminateDialog.setTitle("Please wait");
-        String ocrEngineModeName = "Tesseract"; //getOcrEngineModeName();
+        String ocrEngineModeName = "Tesseract";
         indeterminateDialog.setMessage("Initializing " + ocrEngineModeName + " OCR engine for " + languageName + "...");
         indeterminateDialog.setCancelable(false);
         indeterminateDialog.show();
@@ -355,16 +345,7 @@ public class MainActivity extends Activity {
                 .execute(storageRoot.toString());
     }
 
-
-    /** Sets the necessary language code values for the given OCR language. */
-    private boolean setSourceLanguage(String languageCode) {
-        sourceLanguageCodeOcr = languageCode;
-        sourceLanguageReadable = LanguageCodeHelper.getOcrLanguageName(this, languageCode);
-        return true;
-    }
-
     public void handleOcrResult(boolean success, OcrResult result) {
-
 
         // Test whether the result is null
         if (!success || result.getText() == null || result.getText().equals("")) {
@@ -408,9 +389,9 @@ public class MainActivity extends Activity {
 
         // Draw each rectangle
         for(Rect rect : rectList) {
-            android.graphics.Rect rect2 = new android.graphics.Rect((int) rect.tl().x, (int) rect.tl().y,
+            android.graphics.Rect rectGraphic = new android.graphics.Rect((int) rect.tl().x, (int) rect.tl().y,
                     (int) rect.br().x, (int) rect.br().y);
-            canvas.drawRect(rect2, paint);
+            canvas.drawRect(rectGraphic, paint);
         }
 
         // Display the image with rectangles on it
