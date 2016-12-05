@@ -20,9 +20,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Created by yaron on 31/12/15.
- */
+import static org.opencv.imgproc.Imgproc.boundingRect;
+
 public class ImageProccessingService {
 
     private final String TAG = "ImageProccessingService";
@@ -49,10 +48,12 @@ public class ImageProccessingService {
         return bitmap;
     }
 
-    public List<List<Point>> detectObjects(Bitmap bitmap) {
+    public List<Rect> detectObjects(Bitmap bitmap) {
         Mat img = Mat.zeros(bitmap.getHeight(), bitmap.getWidth(), CvType.CV_8UC1);
         Mat mask = Mat.zeros(img.size(), CvType.CV_8UC1);
-        Scalar CONTOUR_COLOR = new Scalar(255);
+
+
+        Scalar CONTOUR_COLOR = new Scalar(255, 0, 0);
         Utils.bitmapToMat(bitmap, img);
 
         // Needed to prevent img from being treated as CV_8UC4, which MSER feature detector won't accept
@@ -64,9 +65,6 @@ public class ImageProccessingService {
 
         Log.i(TAG, "Mat of key points = " + mokp.rows() + "x" + mokp.cols());
 
-        // TODO: test out converting they keypoints to rectangles
-        // See http://yaronvazana.com/2016/02/02/android-text-detection-using-opencv/
-        // In particular, look at the onCameraFrame() function in the "Text Detection Implementation"
         List<KeyPoint> keypointsList = mokp.toList();
 
         for(KeyPoint keyPoint : keypointsList) {
@@ -95,19 +93,30 @@ public class ImageProccessingService {
 
         Scalar zeos = new Scalar(0, 0, 0);
         List<MatOfPoint> contour2 = new ArrayList<MatOfPoint>();
-        List<List<Point>> rectList = new ArrayList<List<Point>>();
-        Mat kernel = new Mat(1, 50, CvType.CV_8UC1, Scalar.all(255));
+        //List<List<Point>> rectList = new ArrayList<List<Point>>();
+        List<Rect> rectList = new ArrayList<Rect>();
+
         Mat morbyte = new Mat();
         Mat hierarchy = new Mat();
 
         Rect rectan2 = new Rect();
         int imgsize = img.height() * img.width();
-        Imgproc.morphologyEx(mask, morbyte, Imgproc.MORPH_DILATE, kernel);
+
+        // Perform dilation
+        Mat se = new Mat(1, 50, CvType.CV_8UC1, Scalar.all(255));
+        Imgproc.morphologyEx(mask, morbyte, Imgproc.MORPH_DILATE, se);
+
+        // Find contours
         Imgproc.findContours(morbyte, contour2, hierarchy,
                 Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
-        for (int ind = 0; ind < contour2.size(); ind++) {
-            rectan2 = Imgproc.boundingRect(contour2.get(ind));
-            if (rectan2.area() > 0.5 * imgsize || rectan2.area() < 100
+
+        for (MatOfPoint matOfPoint : contour2) {
+            rectList.add(Imgproc.boundingRect(matOfPoint));
+            //Core.rectangle(img, rectan2.br(), rectan2.tl(), CONTOUR_COLOR);
+        }
+        /*for (int ind = 0; ind < contour2.size(); ind++) {
+            rectan2 = boundingRect(contour2.get(ind));
+            /*if (rectan2.area() > 0.5 * imgsize || rectan2.area() < 100
                     || rectan2.width / rectan2.height < 2) {
                 Mat roi = new Mat(morbyte, rectan2);
                 roi.setTo(zeos);
@@ -118,7 +127,7 @@ public class ImageProccessingService {
                 List<Point> corners = Arrays.asList(rectan2.tl(), rectan2.br());
                 rectList.add(corners);
             }
-        }
+        }*/
 
         return rectList;
     }

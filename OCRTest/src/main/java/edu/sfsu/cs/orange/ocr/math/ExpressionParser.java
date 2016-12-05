@@ -8,7 +8,7 @@ import com.fathzer.soft.javaluator.DoubleEvaluator;
 
 public class ExpressionParser {
 
-    public static Double parse(String exp) {
+    public static Double parse(String exp) throws Exception {
         DoubleEvaluator evaluator = new DoubleEvaluator();
         Double result = evaluator.evaluate(exp);
         return result;

@@ -32,6 +32,7 @@ import com.googlecode.tesseract.android.ResultIterator;
 import com.googlecode.tesseract.android.TessBaseAPI;
 import com.googlecode.tesseract.android.TessBaseAPI.PageIteratorLevel;
 
+import org.opencv.core.Core;
 import org.opencv.core.Point;
 
 import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
@@ -48,40 +49,75 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
   //  private static final boolean PERFORM_OTSU_THRESHOLDING = false; 
   //  private static final boolean PERFORM_SOBEL_THRESHOLDING = false; 
 
-  private CaptureActivity activity;
+  private MainActivity activity;
   private TessBaseAPI baseApi;
-  private byte[] data;
+  private Bitmap bitmap;
   private int width;
   private int height;
   private OcrResult ocrResult;
   private long timeRequired;
 
-  OcrRecognizeAsyncTask(CaptureActivity activity, TessBaseAPI baseApi, byte[] data, int width, int height) {
+  OcrRecognizeAsyncTask(MainActivity activity, TessBaseAPI baseApi, Bitmap bitmap, int width, int height) {
     this.activity = activity;
     this.baseApi = baseApi;
-    this.data = data;
+    this.bitmap = bitmap;
     this.width = width;
     this.height = height;
   }
 
+  /*OcrRecognizeAsyncTaskOld(CaptureActivity activity, TessBaseAPI baseApi, Bitmap bitmap, int width, int height) {
+    this.activity = activity;
+    this.baseApi = baseApi;
+    this.bitmap = bitmap;
+    this.width = width;
+    this.height = height;
+  }*/
+
   @Override
   protected Boolean doInBackground(Void... arg0) {
-    Integer ulx;
+    /*Integer ulx;
     Integer uly;
     Integer brx;
-    Integer bry;
+    Integer bry;*/
+    Integer ulx, uly, brx, bry;
 
     long start = System.currentTimeMillis();
-    Bitmap bitmap = activity.getCameraManager().buildLuminanceSource(data, width, height).renderCroppedGreyscaleBitmap();
+    //Bitmap bitmap = activity.getCameraManager().buildLuminanceSource(data, width, height).renderCroppedGreyscaleBitmap();
 
     // TODO: modify the detectObjects function in ImageProcessingService so that it returns
     // the rectangles around each equation. Then process those rectangles here (e.g. pass them
     // to tesseract, draw them, etc.)
     Log.d("ABCDEFGHIJKLM", "before!");
-    Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(bitmap);
-    List<List<Point>> rectList = ImageProccessingService.getInstance().detectObjects(gray);
+    Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(this.bitmap);
+    //List<List<Point>> rectList = ImageProccessingService.getInstance().detectObjects(gray);
+    List<org.opencv.core.Rect> rectList = ImageProccessingService.getInstance().detectObjects(gray);
     // test out slicing image
-    if (rectList.size() > 0) {
+    if (rectList.size() == 0) {
+      // TODO: send proper error message
+      Log.d("abcd", "Failed to detect rectangles");
+      return false;
+    } else {
+      for (org.opencv.core.Rect rect : rectList) {
+          ulx = (int) rect.tl().x;
+          uly = (int) rect.tl().y;
+          brx = (int) rect.br().x;
+          bry = (int) rect.br().y;
+
+
+
+        //Core.rectangle(bitmap, rect.br(), rect.tl(), CONTOUR_COLOR);
+
+        // crop by bounding box, but leave some padding space
+        Log.d("Cropping at", ulx.toString() + " " +uly.toString());
+        bitmap = Bitmap.createBitmap(bitmap, Math.max(ulx - 10,0), Math.max(uly - 10,0),
+                Math.min(brx + 15,bitmap.getWidth())- ulx , Math.min(bry + 15,bitmap.getHeight())- uly );
+
+          // TODO: process all rectangles instead of breaking here
+        break;
+      }
+    }
+
+    /*if (rectList.size() > 0) {
       ulx = (int) rectList.get(0).get(0).x;
       uly = (int) rectList.get(0).get(0).y;
       brx = (int) rectList.get(0).get(1).x;
@@ -90,7 +126,7 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
       Log.d("Cropping at", ulx.toString() + " " +uly.toString());
       bitmap = Bitmap.createBitmap(bitmap, Math.max(ulx - 10,0), Math.max(uly - 10,0),
               Math.min(brx + 15,bitmap.getWidth())- ulx , Math.min(bry + 15,bitmap.getHeight())- uly );
-    }
+    }*/
     Log.d("ABCDEFGHIJKLM", "after!");
 
 
@@ -148,7 +184,7 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
       e.printStackTrace();
       try {
         baseApi.clear();
-        activity.stopHandler();
+        //activity.stopHandler();
       } catch (NullPointerException e1) {
         // Continue
       }
@@ -165,6 +201,9 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
   protected void onPostExecute(Boolean result) {
     super.onPostExecute(result);
 
+    activity.handleOcrResult(result, ocrResult);
+
+    /*
     Handler handler = activity.getHandler();
     if (handler != null) {
       // Send results for single-shot mode recognition.
@@ -179,6 +218,6 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
     }
     if (baseApi != null) {
       baseApi.clear();
-    }
+    }*/
   }
 }

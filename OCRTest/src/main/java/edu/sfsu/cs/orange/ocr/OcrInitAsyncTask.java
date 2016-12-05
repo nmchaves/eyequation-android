@@ -62,7 +62,7 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
     ".traineddata"
   };
 
-  private CaptureActivity activity;
+  private MainActivity activity;
   private Context context;
   private TessBaseAPI baseApi;
   private ProgressDialog dialog;
@@ -89,9 +89,9 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
    * @param ocrEngineMode
    *          Whether to use Tesseract, Cube, or both
    */
-  OcrInitAsyncTask(CaptureActivity activity, TessBaseAPI baseApi, ProgressDialog dialog, 
-      ProgressDialog indeterminateDialog, String languageCode, String languageName, 
-      int ocrEngineMode) {
+  OcrInitAsyncTask(MainActivity activity, TessBaseAPI baseApi, ProgressDialog dialog,
+                      ProgressDialog indeterminateDialog, String languageCode, String languageName,
+                      int ocrEngineMode) {
     this.activity = activity;
     this.context = activity.getBaseContext();
     this.baseApi = baseApi;
@@ -102,6 +102,20 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
     this.ocrEngineMode = ocrEngineMode;
   }
 
+
+  /*OcrInitAsyncTaskOld(CaptureActivity activity, TessBaseAPI baseApi, ProgressDialog dialog,
+                   ProgressDialog indeterminateDialog, String languageCode, String languageName,
+                   int ocrEngineMode) {
+    this.activity = activity;
+    this.context = activity.getBaseContext();
+    this.baseApi = baseApi;
+    this.dialog = dialog;
+    this.indeterminateDialog = indeterminateDialog;
+    this.languageCode = languageCode;
+    this.languageName = languageName;
+    this.ocrEngineMode = ocrEngineMode;
+  }*/
+
   @Override
   protected void onPreExecute() {
     super.onPreExecute();
@@ -111,7 +125,7 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
     dialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
     dialog.setCancelable(false);
     dialog.show();
-    activity.setButtonVisibility(false);
+    //activity.setButtonVisibility(false);
   }
 
   /**
@@ -126,12 +140,6 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
     // Example Cube data filename: "tesseract-ocr-3.01.eng.tar"
     // Example Tesseract data filename: "eng.traineddata"
     String destinationFilenameBase = languageCode + ".traineddata";
-    boolean isCubeSupported = false;
-    for (String s : CaptureActivity.CUBE_SUPPORTED_LANGUAGES) {
-      if (s.equals(languageCode)) {
-        isCubeSupported = true;   
-      }
-    }
 
     // Check for, and create if necessary, folder to hold model data
     String destinationDirBase = params[0]; // The storage directory, minus the
@@ -157,24 +165,9 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
       deleteCubeDataFiles(tessdataDir);
     }
 
-    // Check whether all Cube data files have already been installed
-    boolean isAllCubeDataInstalled = false;
-    if (isCubeSupported) {
-      boolean isAFileMissing = false;
-      File dataFile;
-      for (String s : CUBE_DATA_FILES) {
-        dataFile = new File(tessdataDir.toString() + File.separator + languageCode + s);
-        if (!dataFile.exists()) {
-          isAFileMissing = true;
-        }
-      }
-      isAllCubeDataInstalled = !isAFileMissing;
-    }
-
     // If language data files are not present, install them
     boolean installSuccess = false;
-    if (!tesseractTestFile.exists()
-        || (isCubeSupported && !isAllCubeDataInstalled)) {
+    if (!tesseractTestFile.exists()) {
       Log.d(TAG, "Language data for " + languageCode + " not found in " + tessdataDir.toString());
       deleteCubeDataFiles(tessdataDir);
 
@@ -472,7 +465,7 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
   /**
    * Returns the uncompressed size for a Gzipped file.
    * 
-   * @param file
+   * @param zipFile
    *          Gzipped file to get the size for
    * @return Size when uncompressed, in bytes
    * @throws IOException
@@ -689,13 +682,13 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
       // Catch "View not attached to window manager" error, and continue
     }
 
+    /*
     if (result) {
       // Restart recognition
       activity.resumeOCR();
-      activity.showLanguageName();
     } else {
       activity.showErrorMessage("Error", "Network is unreachable - cannot download language data. "
           + "Please enable network access and restart this app.");
-    }
+    }*/
   }
 }

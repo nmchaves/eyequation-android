@@ -17,7 +17,8 @@
 
 package edu.sfsu.cs.orange.ocr;
 
-import edu.sfsu.cs.orange.ocr.BeepManager;
+import com.googlecode.tesseract.android.TessBaseAPI;
+
 
 import com.googlecode.leptonica.android.Pixa;
 import com.googlecode.leptonica.android.ReadFile;
@@ -31,6 +32,9 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
+import static android.R.attr.height;
+import static android.R.attr.width;
+
 /**
  * Class to send bitmap data for OCR.
  * 
@@ -41,7 +45,6 @@ final class DecodeHandler extends Handler {
   private final CaptureActivity activity;
   private boolean running = true;
   private final TessBaseAPI baseApi;
-  private BeepManager beepManager;
   private Bitmap bitmap;
   private static boolean isDecodePending;
   private long timeRequired;
@@ -49,8 +52,6 @@ final class DecodeHandler extends Handler {
   DecodeHandler(CaptureActivity activity) {
     this.activity = activity;
     baseApi = activity.getBaseApi();
-    beepManager = new BeepManager(activity);
-    beepManager.updatePrefs();
   }
 
   @Override
@@ -59,15 +60,21 @@ final class DecodeHandler extends Handler {
       return;
     }
     switch (message.what) {        
-    case R.id.ocr_continuous_decode:
+    /*case R.id.ocr_continuous_decode:
       // Only request a decode if a request is not already pending.
       if (!isDecodePending) {
         isDecodePending = true;
         ocrContinuousDecode((byte[]) message.obj, message.arg1, message.arg2);
       }
-      break;
+      break;*/
     case R.id.ocr_decode:
-      ocrDecode((byte[]) message.obj, message.arg1, message.arg2);
+
+      Bitmap bitmap = activity.getCameraManager()
+              .buildLuminanceSource((byte[]) message.obj, message.arg1, message.arg2)
+              .renderCroppedGreyscaleBitmap();
+
+      activity.processCameraFrame(bitmap);
+      //ocrDecode((byte[]) message.obj, message.arg1, message.arg2);
       break;
     case R.id.quit:
       running = false;
@@ -88,11 +95,11 @@ final class DecodeHandler extends Handler {
    * @param height Image height
    */
   private void ocrDecode(byte[] data, int width, int height) {
-    beepManager.playBeepSoundAndVibrate();
+
     activity.displayProgressDialog();
     
     // Launch OCR asynchronously, so we get the dialog box displayed immediately
-    new OcrRecognizeAsyncTask(activity, baseApi, data, width, height).execute();
+    //new OcrRecognizeAsyncTask(activity, baseApi, data, width, height).execute();
   }
 
   /**

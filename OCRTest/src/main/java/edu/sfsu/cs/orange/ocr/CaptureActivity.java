@@ -23,7 +23,6 @@ import java.io.IOException;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
@@ -33,19 +32,15 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
-import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.preference.PreferenceManager;
-import android.text.ClipboardManager;
 import android.text.SpannableStringBuilder;
 import android.text.style.CharacterStyle;
 import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.util.TypedValue;
-import android.view.ContextMenu;
-import android.view.ContextMenu.ContextMenuInfo;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -67,14 +62,15 @@ import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 
 import edu.sfsu.cs.orange.ocr.camera.CameraManager;
-import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
 import edu.sfsu.cs.orange.ocr.camera.ShutterButton;
 import edu.sfsu.cs.orange.ocr.language.LanguageCodeHelper;
-import edu.sfsu.cs.orange.ocr.language.TranslateAsyncTask;
 import edu.sfsu.cs.orange.ocr.math.ExpressionParser;
 
+import static android.R.attr.data;
+import static com.memetix.mst.detect.Detect.execute;
+
 /**
- * This activity opens the camera and does the actual scanning on a background thread. It draws a
+ * This is the app's main activity. It opens the camera and does the actual scanning on a background thread. It draws a
  * viewfinder to help the user place the text correctly, shows feedback as the image processing
  * is happening, and then overlays the results when a scan is successful.
  * 
@@ -85,34 +81,29 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   private static final String TAG = CaptureActivity.class.getSimpleName();
 
-  // Needed for loading OpenCV using OpenCV Manager
+  private int RESULTS_ACTIVITY_REQUEST = 1;
+
+  // Callback for loading OpenCV using OpenCV Manager
   private BaseLoaderCallback mOvenCVLoaderCallback = new BaseLoaderCallback(this) {
     @Override
     public void onManagerConnected(int status) {
       switch (status) {
-        case LoaderCallbackInterface.SUCCESS: {
+        case LoaderCallbackInterface.SUCCESS:
           Log.i(TAG, "OpenCV loaded successfully");
-        }
-        break;
-        default: {
+          break;
+        default:
+          // Handle error after callback
           super.onManagerConnected(status);
-        }
-        break;
+          break;
       }
     }
   };
 
-
+  // Specify default preferences.
   // Note: These constants will be overridden by any default values defined in preferences.xml.
   
   /** ISO 639-3 language code indicating the default recognition language. */
   public static final String DEFAULT_SOURCE_LANGUAGE_CODE = "eng";
-  
-  /** ISO 639-1 language code indicating the default target language for translation. */
-  public static final String DEFAULT_TARGET_LANGUAGE_CODE = "es";
-  
-  /** The default online machine translation service to use. */
-  public static final String DEFAULT_TRANSLATOR = "Google Translate";
   
   /** The default OCR engine to use. */
   public static final String DEFAULT_OCR_ENGINE_MODE = "Tesseract";
@@ -126,42 +117,14 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   /** Whether to initially disable continuous-picture and continuous-video focus modes. */
   public static final boolean DEFAULT_DISABLE_CONTINUOUS_FOCUS = true;
   
-  /** Whether to beep by default when the shutter button is pressed. */
-  public static final boolean DEFAULT_TOGGLE_BEEP = false;
-  
   /** Whether to initially show a looping, real-time OCR display. */
   public static final boolean DEFAULT_TOGGLE_CONTINUOUS = false;
   
   /** Whether to initially reverse the image returned by the camera. */
   public static final boolean DEFAULT_TOGGLE_REVERSED_IMAGE = false;
   
-  /** Whether to enable the use of online translation services be default. */
-  public static final boolean DEFAULT_TOGGLE_TRANSLATION = true;
-  
   /** Whether the light should be initially activated by default. */
   public static final boolean DEFAULT_TOGGLE_LIGHT = false;
-
-  
-  /** Flag to display the real-time recognition results at the top of the scanning screen. */
-  private static final boolean CONTINUOUS_DISPLAY_RECOGNIZED_TEXT = true;
-  
-  /** Flag to display recognition-related statistics on the scanning screen. */
-  private static final boolean CONTINUOUS_DISPLAY_METADATA = true;
-  
-  /** Flag to enable display of the on-screen shutter button. */
-  private static final boolean DISPLAY_SHUTTER_BUTTON = true;
-  
-  /** Languages for which Cube data is available. */
-  static final String[] CUBE_SUPPORTED_LANGUAGES = { 
-    "ara", // Arabic
-    "eng", // English
-    "hin" // Hindi
-  };
-
-  /** Languages that require Cube, and cannot run using Tesseract. */
-  private static final String[] CUBE_REQUIRED_LANGUAGES = { 
-    "ara" // Arabic
-  };
   
   /** Resource to use for data file downloads. */
   static final String DOWNLOAD_BASE = "http://tesseract-ocr.googlecode.com/files/";
@@ -171,27 +134,22 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   
   /** Destination filename for orientation and script detection (OSD) data. */
   static final String OSD_FILENAME_BASE = "osd.traineddata";
-  
+
+  // TODO: tweak this parameter
   /** Minimum mean confidence score necessary to not reject single-shot OCR result. Currently unused. */
   static final int MINIMUM_MEAN_CONFIDENCE = 0; // 0 means don't reject any scored results
   
-  // Context menu
+  // Context menu positions
   private static final int SETTINGS_ID = Menu.FIRST;
   private static final int ABOUT_ID = Menu.FIRST + 1;
-  
-  // Options menu, for copy to clipboard
-  private static final int OPTIONS_COPY_RECOGNIZED_TEXT_ID = Menu.FIRST;
-  private static final int OPTIONS_COPY_TRANSLATED_TEXT_ID = Menu.FIRST + 1;
-  private static final int OPTIONS_SHARE_RECOGNIZED_TEXT_ID = Menu.FIRST + 2;
-  private static final int OPTIONS_SHARE_TRANSLATED_TEXT_ID = Menu.FIRST + 3;
 
   private CameraManager cameraManager;
   private CaptureActivityHandler handler;
   private ViewfinderView viewfinderView;
   private SurfaceView surfaceView;
   private SurfaceHolder surfaceHolder;
-  private TextView statusViewBottom;
-  private TextView statusViewTop;
+  private ImageView capturedImageView;
+
   private TextView ocrResultView;
   private TextView translationView;
   private View cameraButtonView;
@@ -200,26 +158,23 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   private OcrResult lastResult;
   private Bitmap lastBitmap;
   private boolean hasSurface;
-  private BeepManager beepManager;
+
   private TessBaseAPI baseApi; // Java interface for the Tesseract OCR engine
   private String sourceLanguageCodeOcr; // ISO 639-3 language code
   private String sourceLanguageReadable; // Language name, for example, "English"
-  private String sourceLanguageCodeTranslation; // ISO 639-1 language code
-  private String targetLanguageCodeTranslation; // ISO 639-1 language code
-  private String targetLanguageReadable; // Language name, for example, "English"
+
   private int pageSegmentationMode = TessBaseAPI.PageSegMode.PSM_AUTO_OSD;
   private int ocrEngineMode = TessBaseAPI.OEM_TESSERACT_ONLY;
   private String characterBlacklist;
   private String characterWhitelist;
   private ShutterButton shutterButton;
-  private boolean isTranslationActive; // Whether we want to show translations
+
   private boolean isContinuousModeActive; // Whether we are doing OCR in continuous mode
   private SharedPreferences prefs;
   private OnSharedPreferenceChangeListener listener;
   private ProgressDialog dialog; // for initOcr - language download & unzip
   private ProgressDialog indeterminateDialog; // also for initOcr - init OCR engine
   private boolean isEngineReady;
-  private boolean isPaused;
   private static boolean isFirstLaunch; // True if this is the first time the app is being run
 
   Handler getHandler() {
@@ -235,45 +190,37 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   }
   
   @Override
-  public void onCreate(Bundle icicle) {
-    super.onCreate(icicle);
+  public void onCreate(Bundle bundle) {
+    super.onCreate(bundle);
 
-
+    // Attempt to load OpenCV
     if (!OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_11, this, mOvenCVLoaderCallback)) {
-      Log.e(TAG, "Cannot connect to OpenCV Manager");
+      Toast toast = Toast.makeText(getApplicationContext(), "Failed to load OpenCV! Chack that you have OpenCV Manager.", Toast.LENGTH_LONG);
+      toast.show();
     }
 
-
-    
     checkFirstLaunch();
-    
     if (isFirstLaunch) {
       setDefaultPreferences();
     }
-    
+
+    // Keep the app awake. Helpful for demo purposes
     Window window = getWindow();
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-    requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
+
     setContentView(R.layout.capture);
     viewfinderView = (ViewfinderView) findViewById(R.id.viewfinder_view);
     cameraButtonView = findViewById(R.id.camera_button_view);
     resultView = findViewById(R.id.result_view);
-    
-    statusViewBottom = (TextView) findViewById(R.id.status_view_bottom);
-    registerForContextMenu(statusViewBottom);
-    statusViewTop = (TextView) findViewById(R.id.status_view_top);
-    registerForContextMenu(statusViewTop);
+    capturedImageView = (ImageView) findViewById(R.id.captured_image);
     
     handler = null;
     lastResult = null;
     hasSurface = false;
-    beepManager = new BeepManager(this);
     
     // Camera shutter button
-    if (DISPLAY_SHUTTER_BUTTON) {
-      shutterButton = (ShutterButton) findViewById(R.id.shutter_button);
-      shutterButton.setOnShutterButtonListener(this);
-    }
+    shutterButton = (ShutterButton) findViewById(R.id.shutter_button);
+    shutterButton.setOnShutterButtonListener(this);
    
     ocrResultView = (TextView) findViewById(R.id.ocr_result_text_view);
     registerForContextMenu(ocrResultView);
@@ -284,7 +231,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
     cameraManager = new CameraManager(getApplication());
     viewfinderView.setCameraManager(cameraManager);
-    
+
+    // TODO: remove the viewfinder or make it optional
     // Set listener to change the size of the viewfinder rectangle.
     viewfinderView.setOnTouchListener(new View.OnTouchListener() {
       int lastX = -1;
@@ -367,6 +315,32 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     });
     
     isEngineReady = false;
+
+
+    // TODO:
+    // Test out drawing a rectangle
+    /*SurfaceView transparentView = (SurfaceView)findViewById(R.id.TransparentView);
+
+    SurfaceHolder holderTransparent = transparentView.getHolder();
+    holderTransparent.setFormat(PixelFormat.TRANSPARENT);
+    //holderTransparent.addCallback(callBack);
+    holderTransparent.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+
+
+    Canvas canvas = holderTransparent.lockCanvas();
+    canvas.drawColor(Color.RED, PorterDuff.Mode.CLEAR);
+    //border's properties
+    Paint paint = new Paint();
+    paint.setStyle(Paint.Style.STROKE);
+    paint.setColor(Color.BLUE);
+    paint.setStrokeWidth(3);
+    float RectLeft = 50;
+    float RectTop = 50;
+    float RectRight = 150;
+    float RectBottom = 150;
+    canvas.drawRect(RectLeft, RectTop, RectRight, RectBottom, paint);*/
+
+
   }
 
   @Override
@@ -384,10 +358,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     surfaceHolder = surfaceView.getHolder();
     if (!hasSurface) {
       surfaceHolder.addCallback(this);
-      surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+      //surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
     }
-    
-    // Comment out the following block to test non-OCR functions without an SD card
     
     // Do OCR engine initialization, if necessary
     boolean doNewInit = (baseApi == null) || !sourceLanguageCodeOcr.equals(previousSourceLanguageCodeOcr) || 
@@ -411,12 +383,13 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
    */
   void resumeOCR() {
     Log.d(TAG, "resumeOCR()");
+
+    setButtonVisibility(true);
+    shutterButton.setClickable(true);
     
-    // This method is called when Tesseract has already been successfully initialized, so set 
+    // This method is called when Tesseract has already been successfully initialized, so set
     // isEngineReady = true here.
     isEngineReady = true;
-    
-    isPaused = false;
 
     if (handler != null) {
       handler.resetState();
@@ -431,34 +404,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       // The activity was paused but not stopped, so the surface still exists. Therefore
       // surfaceCreated() won't be called, so init the camera here.
       initCamera(surfaceHolder);
-    }
-  }
-  
-  /** Called when the shutter button is pressed in continuous mode. */
-  void onShutterButtonPressContinuous() {
-    isPaused = true;
-    handler.stop();  
-    beepManager.playBeepSoundAndVibrate();
-    if (lastResult != null) {
-      handleOcrDecode(lastResult);
-    } else {
-      Toast toast = Toast.makeText(this, "OCR failed. Please try again.", Toast.LENGTH_SHORT);
-      toast.setGravity(Gravity.TOP, 0, 0);
-      toast.show();
-      resumeContinuousDecoding();
-    }
-  }
-
-  /** Called to resume recognition after translation in continuous mode. */
-  @SuppressWarnings("unused")
-  void resumeContinuousDecoding() {
-    isPaused = false;
-    resetStatusView();
-    setStatusViewForContinuous();
-    DecodeHandler.resetDecodeState();
-    handler.resetState();
-    if (shutterButton != null && DISPLAY_SHUTTER_BUTTON) {
-      shutterButton.setVisibility(View.VISIBLE);
     }
   }
 
@@ -503,6 +448,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   
   @Override
   protected void onPause() {
+    Log.d(TAG, "onPause()");
     if (handler != null) {
       handler.quitSynchronously();
     }
@@ -519,6 +465,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   }
 
   void stopHandler() {
+    Log.d(TAG, "stopHandler()");
     if (handler != null) {
       handler.stop();
     }
@@ -526,6 +473,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   @Override
   protected void onDestroy() {
+    Log.d(TAG, "onDestroy()");
     if (baseApi != null) {
       baseApi.end();
     }
@@ -535,13 +483,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   @Override
   public boolean onKeyDown(int keyCode, KeyEvent event) {
     if (keyCode == KeyEvent.KEYCODE_BACK) {
-
-      // First check if we're paused in continuous mode, and if so, just unpause.
-      if (isPaused) {
-        Log.d(TAG, "only resuming continuous recognition, not quitting...");
-        resumeContinuousDecoding();
-        return true;
-      }
 
       // Exit the app if we're not viewing an OCR result.
       if (lastResult == null) {
@@ -557,11 +498,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         return true;
       }
     } else if (keyCode == KeyEvent.KEYCODE_CAMERA) {
-      if (isContinuousModeActive) {
-        onShutterButtonPressContinuous();
-      } else {
-        handler.hardwareShutterButtonClick();
-      }
+      handler.hardwareShutterButtonClick();
       return true;
     } else if (keyCode == KeyEvent.KEYCODE_FOCUS) {      
       // Only perform autofocus if user is not holding down the button.
@@ -575,8 +512,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   @Override
   public boolean onCreateOptionsMenu(Menu menu) {
-    //    MenuInflater inflater = getMenuInflater();
-    //    inflater.inflate(R.menu.options_menu, menu);
     super.onCreateOptionsMenu(menu);
     menu.add(0, SETTINGS_ID, 0, "Settings").setIcon(android.R.drawable.ic_menu_preferences);
     menu.add(0, ABOUT_ID, 0, "About").setIcon(android.R.drawable.ic_menu_info_details);
@@ -612,21 +547,12 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   /** Sets the necessary language code values for the given OCR language. */
   private boolean setSourceLanguage(String languageCode) {
     sourceLanguageCodeOcr = languageCode;
-    sourceLanguageCodeTranslation = LanguageCodeHelper.mapLanguageCode(languageCode);
     sourceLanguageReadable = LanguageCodeHelper.getOcrLanguageName(this, languageCode);
-    return true;
-  }
-
-  /** Sets the necessary language code values for the translation target language. */
-  private boolean setTargetLanguage(String languageCode) {
-    targetLanguageCodeTranslation = languageCode;
-    targetLanguageReadable = LanguageCodeHelper.getTranslationLanguageName(this, languageCode);
     return true;
   }
 
   /** Finds the proper location on the SD card where we can save files. */
   private File getStorageDirectory() {
-    //Log.d(TAG, "getStorageDirectory(): API level is " + Integer.valueOf(android.os.Build.VERSION.SDK_INT));
     
     String state = null;
     try {
@@ -649,14 +575,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         Log.e(TAG, "External storage is unavailable");
         showErrorMessage("Error", "Required external storage (such as an SD card) is full or unavailable.");
       }
-      
-      //        } else {
-      //          // For Android 2.1 and below, explicitly give the path as, for example,
-      //          // "/mnt/sdcard/Android/data/edu.sfsu.cs.orange.ocr/files/"
-      //          return new File(Environment.getExternalStorageDirectory().toString() + File.separator + 
-      //                  "Android" + File.separator + "data" + File.separator + getPackageName() + 
-      //                  File.separator + "files" + File.separator);
-      //        }
     
     } else if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
     	// We can only read the media
@@ -686,72 +604,64 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       dialog.dismiss();
     }
     dialog = new ProgressDialog(this);
-    
-    // If we have a language that only runs using Cube, then set the ocrEngineMode to Cube
-    if (ocrEngineMode != TessBaseAPI.OEM_CUBE_ONLY) {
-      for (String s : CUBE_REQUIRED_LANGUAGES) {
-        if (s.equals(languageCode)) {
-          ocrEngineMode = TessBaseAPI.OEM_CUBE_ONLY;
-          SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-          prefs.edit().putString(PreferencesActivity.KEY_OCR_ENGINE_MODE, getOcrEngineModeName()).commit();
-        }
-      }
-    }
 
-    // If our language doesn't support Cube, then set the ocrEngineMode to Tesseract
-    if (ocrEngineMode != TessBaseAPI.OEM_TESSERACT_ONLY) {
-      boolean cubeOk = false;
-      for (String s : CUBE_SUPPORTED_LANGUAGES) {
-        if (s.equals(languageCode)) {
-          cubeOk = true;
-        }
-      }
-      if (!cubeOk) {
-        ocrEngineMode = TessBaseAPI.OEM_TESSERACT_ONLY;
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        prefs.edit().putString(PreferencesActivity.KEY_OCR_ENGINE_MODE, getOcrEngineModeName()).commit();
-      }
-    }
     
     // Display the name of the OCR engine we're initializing in the indeterminate progress dialog box
     indeterminateDialog = new ProgressDialog(this);
     indeterminateDialog.setTitle("Please wait");
     String ocrEngineModeName = getOcrEngineModeName();
-    if (ocrEngineModeName.equals("Both")) {
-      indeterminateDialog.setMessage("Initializing Cube and Tesseract OCR engines for " + languageName + "...");
-    } else {
-      indeterminateDialog.setMessage("Initializing " + ocrEngineModeName + " OCR engine for " + languageName + "...");
-    }
+    indeterminateDialog.setMessage("Initializing " + ocrEngineModeName + " OCR engine for " + languageName + "...");
     indeterminateDialog.setCancelable(false);
     indeterminateDialog.show();
     
     if (handler != null) {
       handler.quitSynchronously();     
     }
-
-    // Disable continuous mode if we're using Cube. This will prevent bad states for devices 
-    // with low memory that crash when running OCR with Cube, and prevent unwanted delays.
-    if (ocrEngineMode == TessBaseAPI.OEM_CUBE_ONLY || ocrEngineMode == TessBaseAPI.OEM_TESSERACT_CUBE_COMBINED) {
-      Log.d(TAG, "Disabling continuous preview");
-      isContinuousModeActive = false;
-      SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-      prefs.edit().putBoolean(PreferencesActivity.KEY_CONTINUOUS_PREVIEW, false);
-    }
     
     // Start AsyncTask to install language data and init OCR
     baseApi = new TessBaseAPI();
-    new OcrInitAsyncTask(this, baseApi, dialog, indeterminateDialog, languageCode, languageName, ocrEngineMode)
-      .execute(storageRoot.toString());
+    //new OcrInitAsyncTask(this, baseApi, dialog, indeterminateDialog, languageCode, languageName, ocrEngineMode)
+    //  .execute(storageRoot.toString());
+}
+
+  public void processCameraFrame(Bitmap bitmap) {
+
+    displayCapturedImage(bitmap);
+
+
+    //Intent intent = new Intent(this, EquationViewActivity.class);
+    //intent.putExtra("EquationsImage",bitmap);
+    // TODO: need to be able to pass the baseApi here.
+
+    //startActivityForResult(intent, RESULTS_ACTIVITY_REQUEST);
+
   }
-  
+
+  public void displayCapturedImage(Bitmap bitmap) {
+    capturedImageView.setImageBitmap(bitmap);
+    capturedImageView.setVisibility(View.VISIBLE);
+    surfaceView.setVisibility(View.GONE);
+    shutterButton.setVisibility(View.GONE);
+  }
+
+  void handleOcrDecode(OcrResult ocrResult) {
+
+    Intent intent = new Intent(this, EquationViewActivity.class);
+    intent.putExtra("EquationsImage",ocrResult.getBitmap());
+    startActivityForResult(intent, RESULTS_ACTIVITY_REQUEST);
+
+  }
+
   /**
    * Displays information relating to the result of OCR, and requests a translation if necessary.
    * 
    * @param ocrResult Object representing successful OCR results
    * @return True if a non-null result was received for OCR
    */
-  boolean handleOcrDecode(OcrResult ocrResult) {
+  boolean handleOcrDecodeOld(OcrResult ocrResult) {
     lastResult = ocrResult;
+
+    // TODO: draw rect here?
 
     // Test whether the result is null
     if (ocrResult.getText() == null || ocrResult.getText().equals("")) {
@@ -761,14 +671,22 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       return false;
     }
 
-    Double result = ExpressionParser.parse(ocrResult.getText());
+
+    Double result = null;
+    try {
+      result = ExpressionParser.parse(ocrResult.getText());
+    } catch (Exception e) {
+      Toast toast = Toast.makeText(this, "Unable to parse math expression.", Toast.LENGTH_SHORT);
+      toast.setGravity(Gravity.TOP, 0, 0);
+      toast.show();
+      return false;
+    }
+
     Toast toast = Toast.makeText(this, "Result: " + String.valueOf(result), Toast.LENGTH_LONG);
     toast.show();
 
     // Turn off capture-related UI elements
     shutterButton.setVisibility(View.GONE);
-    statusViewBottom.setVisibility(View.GONE);
-    statusViewTop.setVisibility(View.GONE);
     cameraButtonView.setVisibility(View.GONE);
     viewfinderView.setVisibility(View.GONE);
     resultView.setVisibility(View.VISIBLE);
@@ -784,12 +702,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
 
 
-
-
-
-
-
-
     // Display the recognized text
     TextView sourceLanguageTextView = (TextView) findViewById(R.id.source_language_text_view);
     sourceLanguageTextView.setText(sourceLanguageReadable);
@@ -799,176 +711,17 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     int scaledSize = Math.max(22, 32 - ocrResult.getText().length() / 4);
     ocrResultTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, scaledSize);
 
+    // TODO: just get rid of all of these views
     TextView translationLanguageLabelTextView = (TextView) findViewById(R.id.translation_language_label_text_view);
     TextView translationLanguageTextView = (TextView) findViewById(R.id.translation_language_text_view);
     TextView translationTextView = (TextView) findViewById(R.id.translation_text_view);
-    if (isTranslationActive) {
-      // Handle translation text fields
-      translationLanguageLabelTextView.setVisibility(View.VISIBLE);
-      translationLanguageTextView.setText(targetLanguageReadable);
-      translationLanguageTextView.setTypeface(Typeface.defaultFromStyle(Typeface.NORMAL), Typeface.NORMAL);
-      translationLanguageTextView.setVisibility(View.VISIBLE);
+    translationLanguageLabelTextView.setVisibility(View.GONE);
+    translationLanguageTextView.setVisibility(View.GONE);
+    translationTextView.setVisibility(View.GONE);
+    progressView.setVisibility(View.GONE);
+    setProgressBarVisibility(false);
 
-      // Activate/re-activate the indeterminate progress indicator
-      translationTextView.setVisibility(View.GONE);
-      progressView.setVisibility(View.VISIBLE);
-      setProgressBarVisibility(true);
-      
-      // Get the translation asynchronously
-      new TranslateAsyncTask(this, sourceLanguageCodeTranslation, targetLanguageCodeTranslation, 
-          ocrResult.getText()).execute();
-    } else {
-      translationLanguageLabelTextView.setVisibility(View.GONE);
-      translationLanguageTextView.setVisibility(View.GONE);
-      translationTextView.setVisibility(View.GONE);
-      progressView.setVisibility(View.GONE);
-      setProgressBarVisibility(false);
-    }
     return true;
-  }
-  
-  /**
-   * Displays information relating to the results of a successful real-time OCR request.
-   * 
-   * @param ocrResult Object representing successful OCR results
-   */
-  void handleOcrContinuousDecode(OcrResult ocrResult) {
-   
-    lastResult = ocrResult;
-    
-    // Send an OcrResultText object to the ViewfinderView for text rendering
-    viewfinderView.addResultText(new OcrResultText(ocrResult.getText(), 
-                                                   ocrResult.getWordConfidences(),
-                                                   ocrResult.getMeanConfidence(),
-                                                   ocrResult.getBitmapDimensions(),
-                                                   ocrResult.getRegionBoundingBoxes(),
-                                                   ocrResult.getTextlineBoundingBoxes(),
-                                                   ocrResult.getStripBoundingBoxes(),
-                                                   ocrResult.getWordBoundingBoxes(),
-                                                   ocrResult.getCharacterBoundingBoxes()));
-
-    Integer meanConfidence = ocrResult.getMeanConfidence();
-    
-    if (CONTINUOUS_DISPLAY_RECOGNIZED_TEXT) {
-      // Display the recognized text on the screen
-      statusViewTop.setText(ocrResult.getText());
-      int scaledSize = Math.max(22, 32 - ocrResult.getText().length() / 4);
-      statusViewTop.setTextSize(TypedValue.COMPLEX_UNIT_SP, scaledSize);
-      statusViewTop.setTextColor(Color.BLACK);
-      statusViewTop.setBackgroundResource(R.color.status_top_text_background);
-
-      statusViewTop.getBackground().setAlpha(meanConfidence * (255 / 100));
-    }
-
-    if (CONTINUOUS_DISPLAY_METADATA) {
-      // Display recognition-related metadata at the bottom of the screen
-      long recognitionTimeRequired = ocrResult.getRecognitionTimeRequired();
-      statusViewBottom.setTextSize(14);
-      statusViewBottom.setText("OCR: " + sourceLanguageReadable + " - Mean confidence: " + 
-          meanConfidence.toString() + " - Time required: " + recognitionTimeRequired + " ms");
-    }
-  }
-  
-  /**
-   * Version of handleOcrContinuousDecode for failed OCR requests. Displays a failure message.
-   * 
-   * @param obj Metadata for the failed OCR request.
-   */
-  void handleOcrContinuousDecode(OcrResultFailure obj) {
-    lastResult = null;
-    viewfinderView.removeResultText();
-    
-    // Reset the text in the recognized text box.
-    statusViewTop.setText("");
-
-    if (CONTINUOUS_DISPLAY_METADATA) {
-      // Color text delimited by '-' as red.
-      statusViewBottom.setTextSize(14);
-      CharSequence cs = setSpanBetweenTokens("OCR: " + sourceLanguageReadable + " - OCR failed - Time required: " 
-          + obj.getTimeRequired() + " ms", "-", new ForegroundColorSpan(0xFFFF0000));
-      statusViewBottom.setText(cs);
-    }
-  }
-  
-  /**
-   * Given either a Spannable String or a regular String and a token, apply
-   * the given CharacterStyle to the span between the tokens.
-   * 
-   * NOTE: This method was adapted from:
-   *  http://www.androidengineer.com/2010/08/easy-method-for-formatting-android.html
-   * 
-   * <p>
-   * For example, {@code setSpanBetweenTokens("Hello ##world##!", "##", new
-   * ForegroundColorSpan(0xFFFF0000));} will return a CharSequence {@code
-   * "Hello world!"} with {@code world} in red.
-   * 
-   */
-  private CharSequence setSpanBetweenTokens(CharSequence text, String token,
-      CharacterStyle... cs) {
-    // Start and end refer to the points where the span will apply
-    int tokenLen = token.length();
-    int start = text.toString().indexOf(token) + tokenLen;
-    int end = text.toString().indexOf(token, start);
-
-    if (start > -1 && end > -1) {
-      // Copy the spannable string to a mutable spannable string
-      SpannableStringBuilder ssb = new SpannableStringBuilder(text);
-      for (CharacterStyle c : cs)
-        ssb.setSpan(c, start, end, 0);
-      text = ssb;
-    }
-    return text;
-  }
-  
-  @Override
-  public void onCreateContextMenu(ContextMenu menu, View v,
-      ContextMenuInfo menuInfo) {
-    super.onCreateContextMenu(menu, v, menuInfo);
-    if (v.equals(ocrResultView)) {
-      menu.add(Menu.NONE, OPTIONS_COPY_RECOGNIZED_TEXT_ID, Menu.NONE, "Copy recognized text");
-      menu.add(Menu.NONE, OPTIONS_SHARE_RECOGNIZED_TEXT_ID, Menu.NONE, "Share recognized text");
-    } else if (v.equals(translationView)){
-      menu.add(Menu.NONE, OPTIONS_COPY_TRANSLATED_TEXT_ID, Menu.NONE, "Copy translated text");
-      menu.add(Menu.NONE, OPTIONS_SHARE_TRANSLATED_TEXT_ID, Menu.NONE, "Share translated text");
-    }
-  }
-
-  @Override
-  public boolean onContextItemSelected(MenuItem item) {
-    ClipboardManager clipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-    switch (item.getItemId()) {
-
-    case OPTIONS_COPY_RECOGNIZED_TEXT_ID:
-        clipboardManager.setText(ocrResultView.getText());
-      if (clipboardManager.hasText()) {
-        Toast toast = Toast.makeText(this, "Text copied.", Toast.LENGTH_LONG);
-        toast.setGravity(Gravity.BOTTOM, 0, 0);
-        toast.show();
-      }
-      return true;
-    case OPTIONS_SHARE_RECOGNIZED_TEXT_ID:
-    	Intent shareRecognizedTextIntent = new Intent(android.content.Intent.ACTION_SEND);
-    	shareRecognizedTextIntent.setType("text/plain");
-    	shareRecognizedTextIntent.putExtra(android.content.Intent.EXTRA_TEXT, ocrResultView.getText());
-    	startActivity(Intent.createChooser(shareRecognizedTextIntent, "Share via"));
-    	return true;
-    case OPTIONS_COPY_TRANSLATED_TEXT_ID:
-        clipboardManager.setText(translationView.getText());
-      if (clipboardManager.hasText()) {
-        Toast toast = Toast.makeText(this, "Text copied.", Toast.LENGTH_LONG);
-        toast.setGravity(Gravity.BOTTOM, 0, 0);
-        toast.show();
-      }
-      return true;
-    case OPTIONS_SHARE_TRANSLATED_TEXT_ID:
-    	Intent shareTranslatedTextIntent = new Intent(android.content.Intent.ACTION_SEND);
-    	shareTranslatedTextIntent.setType("text/plain");
-    	shareTranslatedTextIntent.putExtra(android.content.Intent.EXTRA_TEXT, translationView.getText());
-    	startActivity(Intent.createChooser(shareTranslatedTextIntent, "Share via"));
-    	return true;
-    default:
-      return super.onContextItemSelected(item);
-    }
   }
 
   /**
@@ -976,7 +729,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
    */
   private void resetStatusView() {
     resultView.setVisibility(View.GONE);
-    if (CONTINUOUS_DISPLAY_METADATA) {
+    /*if (CONTINUOUS_DISPLAY_METADATA) {
       statusViewBottom.setText("");
       statusViewBottom.setTextSize(14);
       statusViewBottom.setTextColor(getResources().getColor(R.color.status_text));
@@ -986,37 +739,18 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       statusViewTop.setText("");
       statusViewTop.setTextSize(14);
       statusViewTop.setVisibility(View.VISIBLE);
-    }
+    }*/
     viewfinderView.setVisibility(View.VISIBLE);
     cameraButtonView.setVisibility(View.VISIBLE);
-    if (DISPLAY_SHUTTER_BUTTON) {
-      shutterButton.setVisibility(View.VISIBLE);
-    }
+
+    shutterButton.setVisibility(View.VISIBLE);
+
     lastResult = null;
     viewfinderView.removeResultText();
   }
-  
-  /** Displays a pop-up message showing the name of the current OCR source language. */
-  void showLanguageName() {   
-    Toast toast = Toast.makeText(this, "OCR: " + sourceLanguageReadable, Toast.LENGTH_LONG);
-    toast.setGravity(Gravity.TOP, 0, 0);
-    toast.show();
-  }
-  
-  /**
-   * Displays an initial message to the user while waiting for the first OCR request to be
-   * completed after starting realtime OCR.
-   */
-  void setStatusViewForContinuous() {
-    viewfinderView.removeResultText();
-    if (CONTINUOUS_DISPLAY_METADATA) {
-      statusViewBottom.setText("OCR: " + sourceLanguageReadable + " - waiting for OCR...");
-    }
-  }
-  
-  @SuppressWarnings("unused")
+
   void setButtonVisibility(boolean visible) {
-    if (shutterButton != null && visible == true && DISPLAY_SHUTTER_BUTTON) {
+    if (shutterButton != null && visible) {
       shutterButton.setVisibility(View.VISIBLE);
     } else if (shutterButton != null) {
       shutterButton.setVisibility(View.GONE);
@@ -1028,24 +762,26 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
    * 
    * @param clickable True if the button should accept a click
    */
-  void setShutterButtonClickable(boolean clickable) {
+  /*void setShutterButtonClickable(boolean clickable) {
     shutterButton.setClickable(clickable);
-  }
+  }*/
 
   /** Request the viewfinder to be invalidated. */
   void drawViewfinder() {
     viewfinderView.drawViewfinder();
   }
+
   
   @Override
   public void onShutterButtonClick(ShutterButton b) {
-    if (isContinuousModeActive) {
-      onShutterButtonPressContinuous();
-    } else {
-      if (handler != null) {
-        handler.shutterButtonClick();
-      }
+
+    // Capture image
+    if (handler != null) {
+      handler.shutterButtonClick();
     }
+    // TODO: fix this by calling ocr decode here but without the decode thread if possible
+    //cameraManager.requestOcrDecode(decodeThread.getHandler(), R.id.ocr_decode);
+
   }
 
   @Override
@@ -1062,10 +798,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     // Wait 350 ms before focusing to avoid interfering with quick button presses when
     // the user just wants to take a picture without focusing.
     cameraManager.requestAutoFocus(350L);
-  }
-  
-  static boolean getFirstLaunch() {
-    return isFirstLaunch;
   }
   
   /**
@@ -1132,9 +864,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       //setSourceLanguage(prefs.getString(PreferencesActivity.KEY_SOURCE_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_SOURCE_LANGUAGE_CODE));
       //setTargetLanguage(prefs.getString(PreferencesActivity.KEY_TARGET_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_TARGET_LANGUAGE_CODE));
       setSourceLanguage("eng");
-      setTargetLanguage("es");
+      //setTargetLanguage("es");
 
-    isTranslationActive = prefs.getBoolean(PreferencesActivity.KEY_TOGGLE_TRANSLATION, false);
       
       // Retrieve from preferences, and set in this Activity, the capture mode preference
       if (prefs.getBoolean(PreferencesActivity.KEY_CONTINUOUS_PREVIEW, CaptureActivity.DEFAULT_TOGGLE_CONTINUOUS)) {
@@ -1183,7 +914,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       
       prefs.registerOnSharedPreferenceChangeListener(listener);
       
-      beepManager.updatePrefs();
+
   }
   
   /**
@@ -1199,13 +930,13 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     prefs.edit().putString(PreferencesActivity.KEY_SOURCE_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_SOURCE_LANGUAGE_CODE).commit();
 
     // Translation
-    prefs.edit().putBoolean(PreferencesActivity.KEY_TOGGLE_TRANSLATION, CaptureActivity.DEFAULT_TOGGLE_TRANSLATION).commit();
+    //prefs.edit().putBoolean(PreferencesActivity.KEY_TOGGLE_TRANSLATION, CaptureActivity.DEFAULT_TOGGLE_TRANSLATION).commit();
 
     // Translation target language
-    prefs.edit().putString(PreferencesActivity.KEY_TARGET_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_TARGET_LANGUAGE_CODE).commit();
+    //prefs.edit().putString(PreferencesActivity.KEY_TARGET_LANGUAGE_PREFERENCE, CaptureActivity.DEFAULT_TARGET_LANGUAGE_CODE).commit();
 
     // Translator
-    prefs.edit().putString(PreferencesActivity.KEY_TRANSLATOR, CaptureActivity.DEFAULT_TRANSLATOR).commit();
+    //prefs.edit().putString(PreferencesActivity.KEY_TRANSLATOR, CaptureActivity.DEFAULT_TRANSLATOR).commit();
 
     // OCR Engine
     prefs.edit().putString(PreferencesActivity.KEY_OCR_ENGINE_MODE, CaptureActivity.DEFAULT_OCR_ENGINE_MODE).commit();
@@ -1217,7 +948,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     prefs.edit().putBoolean(PreferencesActivity.KEY_DISABLE_CONTINUOUS_FOCUS, CaptureActivity.DEFAULT_DISABLE_CONTINUOUS_FOCUS).commit();
     
     // Beep
-    prefs.edit().putBoolean(PreferencesActivity.KEY_PLAY_BEEP, CaptureActivity.DEFAULT_TOGGLE_BEEP).commit();
+    //prefs.edit().putBoolean(PreferencesActivity.KEY_PLAY_BEEP, CaptureActivity.DEFAULT_TOGGLE_BEEP).commit();
     
     // Character blacklist
     prefs.edit().putString(PreferencesActivity.KEY_CHARACTER_BLACKLIST, 

@@ -152,10 +152,10 @@ public final class CameraManager {
    * @param message The what field of the message to be sent.
    */
   public synchronized void requestOcrDecode(Handler handler, int message) {
-    Camera theCamera = camera;
-    if (theCamera != null && previewing) {
+    //Camera theCamera = camera;
+    if (camera != null && previewing) {
       previewCallback.setHandler(handler, message);
-      theCamera.setOneShotPreviewCallback(previewCallback);
+      camera.setOneShotPreviewCallback(previewCallback);
     }
   }
   
