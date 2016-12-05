@@ -57,7 +57,7 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
   private OcrResult ocrResult;
   private long timeRequired;
 
-  OcrRecognizeAsyncTask(MainActivity activity, TessBaseAPI baseApi, Bitmap bitmap, int width, int height) {
+  OcrRecognizeAsyncTask(MainActivity activity, TessBaseAPI baseApi, Bitmap bitmap, int width, int height, int equationNumber) {
     this.activity = activity;
     this.baseApi = baseApi;
     this.bitmap = bitmap;
@@ -65,20 +65,9 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
     this.height = height;
   }
 
-  /*OcrRecognizeAsyncTaskOld(CaptureActivity activity, TessBaseAPI baseApi, Bitmap bitmap, int width, int height) {
-    this.activity = activity;
-    this.baseApi = baseApi;
-    this.bitmap = bitmap;
-    this.width = width;
-    this.height = height;
-  }*/
-
   @Override
   protected Boolean doInBackground(Void... arg0) {
-    /*Integer ulx;
-    Integer uly;
-    Integer brx;
-    Integer bry;*/
+
     Integer ulx, uly, brx, bry;
 
     long start = System.currentTimeMillis();
@@ -91,7 +80,7 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
     Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(this.bitmap);
     //List<List<Point>> rectList = ImageProccessingService.getInstance().detectObjects(gray);
     List<org.opencv.core.Rect> rectList = ImageProccessingService.getInstance().detectObjects(gray);
-    // test out slicing image
+
     if (rectList.size() == 0) {
       // TODO: send proper error message
       Log.d("abcd", "Failed to detect rectangles");

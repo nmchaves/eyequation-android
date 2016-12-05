@@ -57,6 +57,8 @@ public class MainActivity extends Activity {
     private Bitmap currentFrame;
     private Bitmap currentFrameRaw;
 
+    private List<Rect> equationRectangles;
+
     private TessBaseAPI baseApi;
 
     private ProgressDialog dialog; // for initOcr - language download & unzip
@@ -186,8 +188,8 @@ public class MainActivity extends Activity {
 
             // Continously try to focus the camera
             Camera.Parameters params = c.getParameters();
-            //params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-            params.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
+            params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+            //params.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
             c.setParameters(params);
         }
         catch (Exception e){
@@ -259,14 +261,14 @@ public class MainActivity extends Activity {
         }*/
 
         Bitmap newBitmap = imgBitmap;
-
+        /*
         Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
         Utils.bitmapToMat(imgBitmap, mat);
         Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
 
         Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
         Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 25, 40);
-        Utils.matToBitmap(matBW, newBitmap);
+        Utils.matToBitmap(matBW, newBitmap);*/
 
         /*
         CameraUtils
@@ -285,6 +287,33 @@ public class MainActivity extends Activity {
 
         new FindEqnRectsAsyncTask(this, baseApi, newBitmap, imgBitmap.getWidth(), imgBitmap.getHeight())
               .execute();
+    }
+
+    public void handleEquationResult(EquationResult equationResult) {
+        // TODO: use the equation number to display answer and change the overlay
+        // e.g. update the correct rectangle
+
+        int rectColor;
+        boolean success = equationResult.isSuccess();
+        if(success) {
+            rectColor = Color.GREEN;
+        }
+        else {
+            rectColor = Color.RED;
+        }
+        redrawEquationRect(null, equationResult.getEquationNumber(), rectColor);
+
+        if(success) {
+            double solution = equationResult.getSolution();
+            Toast toast = Toast.makeText(this, "Result: " + String.valueOf(solution), Toast.LENGTH_LONG);
+            toast.show();
+        }
+        else {
+            String errorMessage = equationResult.getErrorMessage();
+            Toast toast = Toast.makeText(this, errorMessage, Toast.LENGTH_LONG);
+            toast.show();
+        }
+
     }
 
     private void hideCameraPreview() {
@@ -372,7 +401,37 @@ public class MainActivity extends Activity {
 
     }
 
+    public void redrawEquationRect(Rect rect, int equationNumber, int color) {
+
+        if(rect == null) {
+            rect = equationRectangles.get(equationNumber);
+        }
+
+        //Create a new image bitmap and attach a brand new canvas to it
+        Bitmap newBitmap = Bitmap.createBitmap(currentFrame.getWidth(), currentFrame.getHeight(), Bitmap.Config.RGB_565);
+        Canvas canvas = new Canvas(newBitmap);
+
+        //Draw the image bitmap into the canvas
+        canvas.drawBitmap(currentFrame, 0, 0, null);
+
+        // Set up the paint to be drawn on the canvas
+        Paint paint = new Paint();
+        paint.setColor(color);
+        paint.setStyle(Paint.Style.STROKE);
+
+        // Redraw the rectangle
+        android.graphics.Rect rectGraphic = new android.graphics.Rect((int) rect.tl().x, (int) rect.tl().y,
+                (int) rect.br().x, (int) rect.br().y);
+        canvas.drawRect(rectGraphic, paint);
+
+        // Display the image with rectangles on it
+        pictureView.setImageDrawable(new BitmapDrawable(getResources(), newBitmap));
+        currentFrame = newBitmap;
+    }
+
     public void drawEquationRects(List<Rect> rectList) {
+
+        equationRectangles = rectList;
 
         //Create a new image bitmap and attach a brand new canvas to it
         Bitmap newBitmap = Bitmap.createBitmap(currentFrame.getWidth(), currentFrame.getHeight(), Bitmap.Config.RGB_565);
