@@ -28,7 +28,10 @@ import com.googlecode.tesseract.android.TessBaseAPI;
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
 import org.opencv.core.Rect;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.util.List;
@@ -256,6 +259,15 @@ public class MainActivity extends Activity {
         }*/
 
         Bitmap newBitmap = imgBitmap;
+
+        Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
+        Utils.bitmapToMat(imgBitmap, mat);
+        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
+
+        Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
+        Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 25, 40);
+        Utils.matToBitmap(matBW, newBitmap);
+
         /*
         CameraUtils
                 .buildLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight())

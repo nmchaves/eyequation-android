@@ -44,9 +44,6 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
         long start = System.currentTimeMillis();
         //Bitmap bitmap = activity.getCameraManager().buildLuminanceSource(data, width, height).renderCroppedGreyscaleBitmap();
 
-        // TODO: modify the detectObjects function in ImageProcessingService so that it returns
-        // the rectangles around each equation. Then process those rectangles here (e.g. pass them
-        // to tesseract, draw them, etc.)
 
         Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(this.bitmap);
         final List<Rect> rectList = ImageProccessingService.getInstance().detectObjects(gray);

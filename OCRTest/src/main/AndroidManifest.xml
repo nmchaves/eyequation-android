@@ -61,15 +61,6 @@
       </intent-filter>
     </activity>
 
-
-
-    <activity android:name=".EquationViewActivity"
-      android:screenOrientation="landscape"
-      android:configChanges="orientation|keyboardHidden|screenSize"
-      android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-      android:windowSoftInputMode="stateAlwaysHidden">
-    </activity>
-
     <activity android:name=".HelpActivity"
               android:screenOrientation="user">
       <intent-filter>

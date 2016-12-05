@@ -645,11 +645,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
   }
 
   void handleOcrDecode(OcrResult ocrResult) {
-
-    Intent intent = new Intent(this, EquationViewActivity.class);
-    intent.putExtra("EquationsImage",ocrResult.getBitmap());
-    startActivityForResult(intent, RESULTS_ACTIVITY_REQUEST);
-
   }
 
   /**

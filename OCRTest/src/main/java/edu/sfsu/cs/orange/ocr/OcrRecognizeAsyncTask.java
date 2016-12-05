@@ -103,8 +103,6 @@ final class OcrRecognizeAsyncTask extends AsyncTask<Void, Void, Boolean> {
           brx = (int) rect.br().x;
           bry = (int) rect.br().y;
 
-
-
         //Core.rectangle(bitmap, rect.br(), rect.tl(), CONTOUR_COLOR);
 
         // crop by bounding box, but leave some padding space
