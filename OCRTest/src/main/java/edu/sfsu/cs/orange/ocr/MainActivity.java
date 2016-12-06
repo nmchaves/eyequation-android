@@ -7,7 +7,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ImageFormat;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
 import android.os.Bundle;
@@ -28,16 +30,14 @@ import com.googlecode.tesseract.android.TessBaseAPI;
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
-import org.opencv.android.Utils;
-import org.opencv.core.Mat;
 import org.opencv.core.Rect;
-import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.util.List;
 
+import edu.sfsu.cs.orange.ocr.camera.CameraConfigurationManager;
 import edu.sfsu.cs.orange.ocr.camera.CameraManager;
-import edu.sfsu.cs.orange.ocr.language.LanguageCodeHelper;
+import edu.sfsu.cs.orange.ocr.camera.CameraPreviewCallback;
 import edu.sfsu.cs.orange.ocr.math.ExpressionParser;
 
 public class MainActivity extends Activity {
@@ -48,7 +48,21 @@ public class MainActivity extends Activity {
     // then we must be viewing the frame of the equation(s)
     boolean isCameraPreviewing = true;
 
+    // Callback for receiving a preview frame from the camera
+    private CameraPreviewCallback cameraPreviewCB;
+
+    public class CameraPreviewCallback implements Camera.PreviewCallback {
+
+        public CameraPreviewCallback() {}
+
+        @Override
+        public void onPreviewFrame(byte[] bytes, Camera camera) {
+            handlePreviewFrame(bytes, camera);
+        }
+    }
+
     private static Camera mCamera;
+    private CameraConfigurationManager configManager;
     private FrameLayout previewFrame;
     private CameraPreview mPreview;
     private Button captureButton;
@@ -186,10 +200,16 @@ public class MainActivity extends Activity {
         try {
             c = Camera.open(); // attempt to get a Camera instance
 
-            // Continously try to focus the camera
+            // Set camera parameters
             Camera.Parameters params = c.getParameters();
+
+            // Continously try to focus the camera
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-            //params.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
+
+            // Use NV21 picture format to conform with expected input from PlanarYUVLuminanceSource
+            params.setPreviewFormat(ImageFormat.NV21);
+            //params.setPictureFormat(ImageFormat.NV21);
+
             c.setParameters(params);
         }
         catch (Exception e){
@@ -202,6 +222,12 @@ public class MainActivity extends Activity {
 
         // Create an instance of Camera
         mCamera = getCameraInstance();
+        cameraPreviewCB = new CameraPreviewCallback();
+
+        // Camera configuration
+        configManager = new CameraConfigurationManager(this);
+        configManager.initFromCameraParameters(mCamera);
+        configManager.setDesiredCameraParameters(mCamera);
 
         // Create our Preview view and set it as the content of our activity.
         mPreview = new CameraPreview(this, mCamera);
@@ -218,30 +244,69 @@ public class MainActivity extends Activity {
                     @Override
                     public void onClick(View v) {
                         // get an image from the camera
-                        mCamera.takePicture(null, null, mPictureCB);
+                        //mCamera.takePicture(null, null, mPictureCB);
+
+                        // Request a frame from the camera
+                        mCamera.setOneShotPreviewCallback(cameraPreviewCB);
 
                     }
                 }
         );
     }
 
-    private Camera.PictureCallback mPictureCB = new Camera.PictureCallback() {
+    // Perform all processing steps starting from a raw byte array representing
+    // the image in NV21 format to the final solved equation(s)
+    public void handlePreviewFrame(byte[] data, Camera camera) {
+
+        // Hide the camera preview so we can overlay the single frame
+        hideCameraPreview();
+
+        Point cameraResolution = configManager.getCameraResolution();
+        int width = cameraResolution.x;
+        int height = cameraResolution.y;
+
+        currentFrame = NV21BytesToGrayScaleBitmap(data, width, height);
+
+        pictureView.setImageBitmap(currentFrame);
+        pictureView.setVisibility(View.VISIBLE);
+
+        // Perform the rest of the pipeline
+        processImage(currentFrame, width, height);
+    }
+
+    /*private Camera.PictureCallback mPictureCB = new Camera.PictureCallback() {
 
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
 
+            int width = camera.getParameters().getPreviewSize().width;
+            int height = camera.getParameters().getPreviewSize().height;
+
             currentFrameRaw = BitmapFactory.decodeByteArray(data, 0, data.length);
             currentFrame = currentFrameRaw;
+            //PlanarYUVLuminanceSource lum = new PlanarYUVLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight(),
+             //       0, 0,
+              //      imgBitmap.getWidth(), imgBitmap.getHeight(), false);
+
+
             pictureView.setImageBitmap(currentFrame);
             pictureView.setVisibility(View.VISIBLE);
 
             hideCameraPreview();
 
+            Point cameraResolution = configManager.getCameraResolution();
+            width = cameraResolution.x;
+            height = cameraResolution.y;
+
+            // TODO: just try converting NV21 to jpg and back
+
             // Start processing the image
-            processImage(data, currentFrame);
+            //processImage(data, currentFrame);
+            currentFrame = NV21BytesToBitmap(data, width, height);
+            processImage(currentFrame, width, height);
 
         }
-    };
+    };*/
 
     ProgressDialog getProgressDialog() {
         return indeterminateDialog;
@@ -253,39 +318,24 @@ public class MainActivity extends Activity {
         return handler;
     }
 
-    private void processImage(byte[] data, Bitmap imgBitmap) {
+    /**
+     * Convert an NV21 formatted array to a grayscale bitmap of the image.
+     */
+    private Bitmap NV21BytesToGrayScaleBitmap(byte[] data, int width, int height) {
+        PlanarYUVLuminanceSource lum = new PlanarYUVLuminanceSource(data, width, height,
+                0, 0, width, height, false);
+        return lum.renderCroppedGreyscaleBitmap();
+    }
 
-        Bitmap newBitmap = imgBitmap; // = imgBitmap;
-        /*
-        Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
-        Utils.bitmapToMat(imgBitmap, mat);
-        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
-
-        Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
-        Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 25, 40);
-        Utils.matToBitmap(matBW, newBitmap);
-        */
-        /*
-        CameraUtils
-                .buildLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight())
-                .renderCroppedGreyscaleBitmap();*/
-
-        /*
-        Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
-        Utils.bitmapToMat(imgBitmap, mat);
-        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
-
-        Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
-        Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 15, 40);
-        Utils.matToBitmap(matBW, imgBitmap);
-        */
-
-        new FindEqnRectsAsyncTask(this, baseApi, newBitmap, imgBitmap.getWidth(), imgBitmap.getHeight())
-              .execute();
+    private void processImage(Bitmap bitmap, int width, int height) {
+        new FindEqnRectsAsyncTask(this, baseApi, bitmap, width, height)
+                .execute();
     }
 
     public void handleEquationResult(EquationResult equationResult) {
 
+        // Redraw this equation's rectangle with a color that indicates whether
+        // a solution was found (green) or not (red)
         int rectColor;
         boolean success = equationResult.isSuccess();
         if(success) {
@@ -297,6 +347,7 @@ public class MainActivity extends Activity {
         redrawEquationRect(null, equationResult.getEquationNumber(), rectColor);
 
         if(success) {
+            // Toast the solution and draw it into the image
             double solution = equationResult.getSolution();
             Toast toast = Toast.makeText(this, "Result: " + String.valueOf(solution), Toast.LENGTH_LONG);
             toast.show();
@@ -492,9 +543,46 @@ public class MainActivity extends Activity {
         Log.d(TAG, "onPause()");
 
         // Stop using the camera, to avoid conflicting with other camera-based apps
-        cameraManager.closeDriver();
+        mCamera.release();
+        //cameraManager.closeDriver();
 
         super.onPause();
+    }
+
+    private void processImageOld(byte[] data, Bitmap imgBitmap) {
+
+        Bitmap newBitmap = imgBitmap; // = imgBitmap;
+        /*
+        Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
+        Utils.bitmapToMat(imgBitmap, mat);
+        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
+
+        Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
+        Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 25, 40);
+        Utils.matToBitmap(matBW, newBitmap);
+        */
+        /*
+        CameraUtils
+                .buildLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight())
+                .renderCroppedGreyscaleBitmap();*/
+
+        /*
+        Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
+        Utils.bitmapToMat(imgBitmap, mat);
+        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
+
+        Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
+        Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 15, 40);
+        Utils.matToBitmap(matBW, imgBitmap);
+        */
+        PlanarYUVLuminanceSource lum = new PlanarYUVLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight(),
+                0, 0,
+                imgBitmap.getWidth(), imgBitmap.getHeight(), false);
+
+        Bitmap bitmap2 = lum.renderCroppedGreyscaleBitmap(); //getCameraManager().buildLuminanceSource(data, width, height).renderCroppedGreyscaleBitmap();
+
+        new FindEqnRectsAsyncTask(this, baseApi, bitmap2, imgBitmap.getWidth(), imgBitmap.getHeight())
+                .execute();
     }
 
 }
