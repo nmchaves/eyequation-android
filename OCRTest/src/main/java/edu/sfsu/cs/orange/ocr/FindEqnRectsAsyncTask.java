@@ -42,7 +42,6 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
         Integer ulx, uly, brx, bry;
 
         long start = System.currentTimeMillis();
-        //Bitmap bitmap = activity.getCameraManager().buildLuminanceSource(data, width, height).renderCroppedGreyscaleBitmap();
 
         Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(this.bitmap);
         final List<Rect> rectList = ImageProccessingService.getInstance().detectObjects(gray);
@@ -55,7 +54,6 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
             drawEquationRectangles(rectList);
             DoOcrOnEquations(rectList);
         }
-
 
         return null;
     }
@@ -83,22 +81,20 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
             Integer brx = (int) rect.br().x;
             Integer bry = (int) rect.br().y;
 
-            //Core.rectangle(bitmap, rect.br(), rect.tl(), CONTOUR_COLOR);
-
             // crop by bounding box, but leave some padding space
             Log.d("Cropping at", ulx.toString() + " " +uly.toString());
+            // TODO: determine proper padding
             int paddingHoriz = 0;
             int paddingVert = 0;
 
             Bitmap cropped = Bitmap.createBitmap(bitmap, Math.max(ulx - paddingHoriz,0), Math.max(uly - paddingVert,0),
                     Math.min(brx + paddingHoriz,bitmap.getWidth())- ulx , Math.min(bry + paddingVert,bitmap.getHeight())- uly );
 
-            /*new OcrRecognizeAsyncTask(this.activity, this.baseApi, cropped,
-                    cropped.getWidth(), cropped.getHeight(), equationNumber)
-                    .execute();*/
+            // Start an async task to recognize this equation
             new OcrEquationAsyncTask(this.activity, this.baseApi, equationNumber, cropped,
                     cropped.getWidth(), cropped.getHeight())
                     .execute();
+
             equationNumber++;
         }
 

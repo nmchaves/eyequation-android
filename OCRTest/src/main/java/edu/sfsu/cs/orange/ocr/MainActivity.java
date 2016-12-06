@@ -17,6 +17,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -458,7 +459,7 @@ public class MainActivity extends Activity {
         // Set up the paint to be drawn on the canvas
         Paint paint = new Paint();
         paint.setColor(Color.GREEN);
-        paint.setStrokeWidth(12); // text size
+        paint.setStrokeWidth(22); // text size
 
         // Write the text near the top right of the rectangle
         // TODO: if rect fills the entire bitmap, put the result inside of the rect
@@ -548,6 +549,69 @@ public class MainActivity extends Activity {
 
         super.onPause();
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        //retrievePreferences();
+
+        // Set up the camera preview surface.
+        /*surfaceView = (SurfaceView) findViewById(R.id.preview_view);
+        surfaceHolder = surfaceView.getHolder();
+        if (!hasSurface) {
+            surfaceHolder.addCallback(this);
+            //surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        }*/
+
+        // Do OCR engine initialization, if necessary
+        //boolean doNewInit = (baseApi == null) || !sourceLanguageCodeOcr.equals(previousSourceLanguageCodeOcr) ||
+        //        ocrEngineMode != previousOcrEngineMode;
+        if (baseApi == null) {
+            // Initialize the OCR engine
+            File storageDirectory = getStorageDirectory();
+            if (storageDirectory != null) {
+                initOcrEngine(storageDirectory, sourceLanguageCodeOcr, sourceLanguageReadable);
+            }
+        } else {
+            // We already have the engine initialized, so just start the camera.
+            resumeOCR();
+        }
+    }
+
+
+
+    /**
+     * Method to start or restart recognition after the OCR engine has been initialized,
+     * or after the app regains focus. Sets state related settings and OCR engine parameters,
+     * and requests camera initialization.
+     */
+    void resumeOCR() {
+        Log.d(TAG, "resumeOCR()");
+
+        //setButtonVisibility(true);
+        //shutterButton.setClickable(true);
+
+        // This method is called when Tesseract has already been successfully initialized, so set
+        // isEngineReady = true here.
+        isEngineReady = true;
+
+        /*if (handler != null) {
+            handler.resetState();
+        }*/
+        if (baseApi != null) {
+            baseApi.setPageSegMode(pageSegmentationMode);
+            //baseApi.setVariable(TessBaseAPI.VAR_CHAR_BLACKLIST, characterBlacklist);
+            //baseApi.setVariable(TessBaseAPI.VAR_CHAR_WHITELIST, characterWhitelist);
+        }
+
+        /*if (hasSurface) {
+            // The activity was paused but not stopped, so the surface still exists. Therefore
+            // surfaceCreated() won't be called, so init the camera here.
+            initCamera(surfaceHolder);
+        }*/
+    }
+
 
     private void processImageOld(byte[] data, Bitmap imgBitmap) {
 

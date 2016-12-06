@@ -3,17 +3,10 @@ package edu.sfsu.cs.orange.ocr;
 import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.util.Log;
-import android.view.Gravity;
-import android.widget.Toast;
 
 import com.googlecode.leptonica.android.ReadFile;
 import com.googlecode.tesseract.android.ResultIterator;
 import com.googlecode.tesseract.android.TessBaseAPI;
-
-import org.opencv.core.Rect;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
 import edu.sfsu.cs.orange.ocr.math.ExpressionParser;
@@ -30,6 +23,7 @@ public class OcrEquationAsyncTask extends AsyncTask {
     // Bitmap of the equation
     Bitmap bitmap;
 
+    // Equation number (used to identify the equation)
     private int equationNumber;
 
     private int width;
@@ -39,7 +33,6 @@ public class OcrEquationAsyncTask extends AsyncTask {
     private TessBaseAPI baseApi;
 
     private long timeRequired;
-    private OcrResult ocrResult;
 
     public OcrEquationAsyncTask(MainActivity activity, TessBaseAPI baseApi,
                                 int equationNumber, Bitmap bitmap, int width, int height) {
@@ -54,14 +47,13 @@ public class OcrEquationAsyncTask extends AsyncTask {
     @Override
     protected Object doInBackground(Object[] objects) {
 
-        Integer ulx, uly, brx, bry;
-
         long start = System.currentTimeMillis();
 
         Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(this.bitmap);
 
         String textResult;
 
+        // TODO: try to preprocess the bitmap to improve OCR performance
         try {
             baseApi.setImage(ReadFile.readBitmap(bitmap));
             textResult = baseApi.getUTF8Text();
