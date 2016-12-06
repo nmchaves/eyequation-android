@@ -78,16 +78,12 @@ public class OcrEquationAsyncTask extends AsyncTask {
             try {
                 result = ExpressionParser.parse(textResult);
             } catch (Exception e) {
-                /*Toast toast = Toast.makeText(activity, "Unable to parse math expression.", Toast.LENGTH_SHORT);
-                toast.setGravity(Gravity.TOP, 0, 0);
-                toast.show();*/
                 eqnResult = new EquationResult(equationNumber, null, false, "Unable to parse expression.");
                 sendEquationResult(eqnResult);
                 return false;
             }
 
             eqnResult = new EquationResult(equationNumber, result, true, null);
-            //activity.handleEquationResult(eqnResult);
             sendEquationResult(eqnResult);
             return true;
 

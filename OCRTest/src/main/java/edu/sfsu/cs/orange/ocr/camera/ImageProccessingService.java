@@ -52,8 +52,7 @@ public class ImageProccessingService {
         Mat img = Mat.zeros(bitmap.getHeight(), bitmap.getWidth(), CvType.CV_8UC1);
         Mat mask = Mat.zeros(img.size(), CvType.CV_8UC1);
 
-
-        Scalar CONTOUR_COLOR = new Scalar(255, 0, 0);
+        Scalar CONTOUR_COLOR = new Scalar(255); //new Scalar(255, 0, 0);
         Utils.bitmapToMat(bitmap, img);
 
         // Needed to prevent img from being treated as CV_8UC4, which MSER feature detector won't accept

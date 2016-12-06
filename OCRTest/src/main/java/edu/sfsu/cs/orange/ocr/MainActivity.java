@@ -72,7 +72,7 @@ public class MainActivity extends Activity {
 
     // TODO: clean this up
     private String sourceLanguageCodeOcr = "eng"; // ISO 639-3 language code
-    private String sourceLanguageReadable; // Language name, for example, "English"
+    private String sourceLanguageReadable = "English"; // Language name, for example, "English"
 
     private CameraManager cameraManager;
     CameraManager getCameraManager() {
@@ -94,7 +94,7 @@ public class MainActivity extends Activity {
             toast.show();
         }
 
-        sourceLanguageReadable = LanguageCodeHelper.getOcrLanguageName(this, sourceLanguageCodeOcr);
+        //sourceLanguageReadable = LanguageCodeHelper.getOcrLanguageName(this, sourceLanguageCodeOcr);
         cameraManager = new CameraManager(getApplication());
 
         isEngineReady = false;
@@ -255,12 +255,7 @@ public class MainActivity extends Activity {
 
     private void processImage(byte[] data, Bitmap imgBitmap) {
 
-        /*if(cameraManager == null) {
-            Log.d(TAG, "ERROR!!");
-            return;
-        }*/
-
-        Bitmap newBitmap = imgBitmap;
+        Bitmap newBitmap = imgBitmap; // = imgBitmap;
         /*
         Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
         Utils.bitmapToMat(imgBitmap, mat);
@@ -268,8 +263,8 @@ public class MainActivity extends Activity {
 
         Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
         Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 25, 40);
-        Utils.matToBitmap(matBW, newBitmap);*/
-
+        Utils.matToBitmap(matBW, newBitmap);
+        */
         /*
         CameraUtils
                 .buildLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight())
@@ -290,8 +285,6 @@ public class MainActivity extends Activity {
     }
 
     public void handleEquationResult(EquationResult equationResult) {
-        // TODO: use the equation number to display answer and change the overlay
-        // e.g. update the correct rectangle
 
         int rectColor;
         boolean success = equationResult.isSuccess();
@@ -307,13 +300,14 @@ public class MainActivity extends Activity {
             double solution = equationResult.getSolution();
             Toast toast = Toast.makeText(this, "Result: " + String.valueOf(solution), Toast.LENGTH_LONG);
             toast.show();
+
+            drawEquationResult(solution, equationResult.getEquationNumber());
         }
         else {
             String errorMessage = equationResult.getErrorMessage();
             Toast toast = Toast.makeText(this, errorMessage, Toast.LENGTH_LONG);
             toast.show();
         }
-
     }
 
     private void hideCameraPreview() {
@@ -399,6 +393,42 @@ public class MainActivity extends Activity {
         Toast toast = Toast.makeText(this, "Result: " + String.valueOf(solution), Toast.LENGTH_LONG);
         toast.show();
 
+    }
+
+    public void drawEquationResult(Double result, int equationNumber) {
+
+        //Create a new image bitmap and attach a brand new canvas to it
+        Bitmap newBitmap = Bitmap.createBitmap(currentFrame.getWidth(), currentFrame.getHeight(), Bitmap.Config.RGB_565);
+        Canvas canvas = new Canvas(newBitmap);
+
+        //Draw the image bitmap into the canvas
+        canvas.drawBitmap(currentFrame, 0, 0, null);
+
+        // Set up the paint to be drawn on the canvas
+        Paint paint = new Paint();
+        paint.setColor(Color.GREEN);
+        paint.setStrokeWidth(12); // text size
+
+        // Write the text near the top right of the rectangle
+        // TODO: if rect fills the entire bitmap, put the result inside of the rect
+        // or toast the result. use the displayResultInsideRect
+        Rect rect = equationRectangles.get(equationNumber);
+        String resultStr = String.valueOf(result);
+        int offsetRight = getOffsetRight(resultStr, rect);
+        canvas.drawText(resultStr, rect.x + rect.width - offsetRight, rect.y, paint);
+
+        // Display the image with rectangles on it
+        pictureView.setImageDrawable(new BitmapDrawable(getResources(), newBitmap));
+        currentFrame = newBitmap;
+
+    }
+
+    public int getOffsetRight(String result, Rect rect) {
+        return 30;
+    }
+    // TODO.
+    public boolean displayResultInsideRect(Rect rect) {
+        return false;
     }
 
     public void redrawEquationRect(Rect rect, int equationNumber, int color) {
