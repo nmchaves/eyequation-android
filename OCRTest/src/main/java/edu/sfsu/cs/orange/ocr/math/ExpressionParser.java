@@ -21,6 +21,7 @@ public class ExpressionParser {
     }
 
     private static String preprocessExpression(String exp) {
-        return exp.replace('x', '*');
+        return exp.replace('x', '*')
+                .replace("--", "-");
     }
 }

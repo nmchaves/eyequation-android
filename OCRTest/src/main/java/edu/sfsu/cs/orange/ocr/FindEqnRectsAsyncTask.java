@@ -11,13 +11,18 @@ import org.opencv.core.Rect;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 
 import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
 
+import static android.R.attr.left;
 import static android.R.attr.max;
+import static android.R.attr.x;
+import static android.R.attr.y;
 
 /**
  * Created by nicochaves on 12/4/16.
@@ -55,13 +60,17 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
         Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(this.bitmap);
         final List<Rect> rectList = ImageProccessingService.getInstance().detectObjects(gray);
 
-        if (rectList.size() == 0) {
+        int numRectangles = rectList.size();
+        if (numRectangles == 0) {
             displayNoRectMessage();
             Log.d(TAG, "Failed to detect rectangles");
             return false;
         } else {
-
-            //mergeRectangles(rectList);
+            // Only try to merge if there's a small number of rectangles
+            // because this indicates we're probably zoomed in
+            if(numRectangles > 1 && numRectangles <= 7) {
+                mergeRectangles(rectList);
+            }
 
             drawEquationRectangles(rectList);
             DoOcrOnEquations(rectList);
@@ -70,174 +79,58 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
         return null;
     }
 
-    /*private void mergeRectangles(List<Rect> rectList) {
+    private void mergeRectangles(List<Rect> rectList) {
         // Sort rectangles by their horizontal position
+        Collections.sort(rectList, new Comparator<Rect>() {
+            @Override
+            public int compare(Rect r1, Rect r2) {
+                return (int) (r1.x - r2.x);
+            }
+        });
 
         // Find horizontally connected (or almost connected) rectangles rectangles that need to be merged.
         List<ArrayList<Integer>> connectedComps = new ArrayList<ArrayList<Integer>>();
 
-
-        {
-        List<List<Integer>> connectedComps = new List<List<Integer>>() {
-            @Override
-            public void add(int i, List<Integer> integers) {
-
+        int numRectangles = rectList.size();
+        Rect cur, next;
+        for(int i=0; i < numRectangles-1; i++) {
+            cur = rectList.get(i);
+            next = rectList.get(i+1);
+            if(shouldMerge(cur, next)) {
+                Log.d(TAG, "Merging rectangles at index: " + String.valueOf(i));
+                doMerge(rectList, i, cur, i+1, next);
+                i -= 1;
+                numRectangles -= 1;
             }
-
-            @Override
-            public boolean add(List<Integer> integers) {
-                return false;
-            }
-
-            @Override
-            public boolean addAll(int i, Collection<? extends List<Integer>> collection) {
-                return false;
-            }
-
-            @Override
-            public boolean addAll(Collection<? extends List<Integer>> collection) {
-                return false;
-            }
-
-            @Override
-            public void clear() {
-
-            }
-
-            @Override
-            public boolean contains(Object o) {
-                return false;
-            }
-
-            @Override
-            public boolean containsAll(Collection<?> collection) {
-                return false;
-            }
-
-            @Override
-            public List<Integer> get(int i) {
-                return null;
-            }
-
-            @Override
-            public int indexOf(Object o) {
-                return 0;
-            }
-
-            @Override
-            public boolean isEmpty() {
-                return false;
-            }
-
-            @Override
-            public Iterator<List<Integer>> iterator() {
-                return null;
-            }
-
-            @Override
-            public int lastIndexOf(Object o) {
-                return 0;
-            }
-
-            @Override
-            public ListIterator<List<Integer>> listIterator() {
-                return null;
-            }
-
-            @Override
-            public ListIterator<List<Integer>> listIterator(int i) {
-                return null;
-            }
-
-            @Override
-            public List<Integer> remove(int i) {
-                return null;
-            }
-
-            @Override
-            public boolean remove(Object o) {
-                return false;
-            }
-
-            @Override
-            public boolean removeAll(Collection<?> collection) {
-                return false;
-            }
-
-            @Override
-            public boolean retainAll(Collection<?> collection) {
-                return false;
-            }
-
-            @Override
-            public List<Integer> set(int i, List<Integer> integers) {
-                return null;
-            }
-
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public List<List<Integer>> subList(int i, int i1) {
-                return null;
-            }
-
-            @Override
-            public Object[] toArray() {
-                return new Object[0];
-            }
-
-            @Override
-            public <T> T[] toArray(T[] ts) {
-                return null;
-            }
-        }
-
-        for(Rect rect: rectList) {
-            if(tlx < 0) {
-                tlx = rect.tl().x;
-                tly = rect.tl().y;
-                brx = rect.br().x;
-                bry = rect.br().y;
-            }
-            else {
-
-            }
-
-            if(rect.tl().x < tlx) {
-                tlx = rect.tl().x;
-            }
-
         }
     }
 
-    private Rect doMerge(List<Rect> rectList) {
+    // Merge the pair of rectangles if they're sufficiently close
+    // In particular, compare the vertical centers and their horizontal closeness.
+    private boolean shouldMerge(Rect rect1, Rect rect2) {
 
-        double tlx = -1;
-        double tly = -1;
-        double brx = -1;
-        double bry = -1;
+        int verticalThresh = 30;
+        int horizThresh = 30;
 
-        for(Rect rect: rectList) {
-            if(tlx < 0) {
-                tlx = rect.tl().x;
-                tly = rect.tl().y;
-                brx = rect.br().x;
-                bry = rect.br().y;
-            }
-            else {
+        int yMid1 = rect1.y + (int)((0.5) * rect1.height);
+        int yMid2 = rect2.y + (int)((0.5) * rect2.height);
 
-            }
+        return rect2.x - (rect1.x+rect1.width) <= horizThresh &&
+               Math.abs(yMid2 - yMid1) <= verticalThresh;
+    }
 
-            if(rect.tl().x < tlx) {
-                tlx = rect.tl().x;
-            }
+    private void doMerge(List<Rect> rectList, int rectIdx1, Rect rect1, int rectIdx2, Rect rect2) {
 
-        }
+        int mergeXLeft = Math.min(rect1.x, rect2.x);
+        int mergeXRight = Math.max(rect1.x + rect1.width, rect2.x + rect2.width);
 
-    }*/
+        int mergeYTop = Math.min(rect1.y, rect2.y);
+        int mergeYBottom = Math.max(rect1.y + rect1.height, rect2.y + rect2.height);
+
+        Rect merge = new Rect(mergeXLeft, mergeYTop, mergeXRight - mergeXLeft, mergeYBottom - mergeYTop);
+        rectList.remove(Math.max(rectIdx1, rectIdx2));
+        rectList.set(Math.min(rectIdx1, rectIdx2), merge);
+    }
 
     private void displayNoRectMessage() {
         activity.runOnUiThread(new Runnable() {
