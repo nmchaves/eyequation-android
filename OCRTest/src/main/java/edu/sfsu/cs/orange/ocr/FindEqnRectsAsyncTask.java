@@ -3,6 +3,7 @@ package edu.sfsu.cs.orange.ocr;
 import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.googlecode.tesseract.android.TessBaseAPI;
 
@@ -23,15 +24,17 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
     private MainActivity activity;
     private TessBaseAPI baseApi;
     private Bitmap bitmap;
+    private Bitmap bitmapBW;
     private int width;
     private int height;
     private OcrResult ocrResult;
     private long timeRequired;
 
-    FindEqnRectsAsyncTask(MainActivity activity, TessBaseAPI baseApi, Bitmap bitmap, int width, int height) {
+    FindEqnRectsAsyncTask(MainActivity activity, TessBaseAPI baseApi, Bitmap bitmap, Bitmap bitmapBW, int width, int height) {
         this.activity = activity;
         this.baseApi = baseApi;
         this.bitmap = bitmap;
+        this.bitmapBW = bitmapBW;
         this.width = width;
         this.height = height;
     }
@@ -47,7 +50,7 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
         final List<Rect> rectList = ImageProccessingService.getInstance().detectObjects(gray);
 
         if (rectList.size() == 0) {
-            // TODO: handle this case better by calling some fail function in MainActivity
+            displayNoRectMessage();
             Log.d(TAG, "Failed to detect rectangles");
             return false;
         } else {
@@ -58,8 +61,17 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
         return null;
     }
 
-    private void drawEquationRectangles(final List<Rect> rectList) {
+    private void displayNoRectMessage() {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast toast = Toast.makeText(activity, "Could not find any equations", Toast.LENGTH_LONG);
+                toast.show();
+            }
+        });
+    }
 
+    private void drawEquationRectangles(final List<Rect> rectList) {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -69,7 +81,6 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
 
             }
         });
-
     }
 
     private void DoOcrOnEquations(List<Rect> rectList) {
@@ -83,12 +94,16 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
 
             // crop by bounding box, but leave some padding space
             Log.d("Cropping at", ulx.toString() + " " +uly.toString());
-            // TODO: determine proper padding
-            int paddingHoriz = 0;
-            int paddingVert = 0;
 
-            Bitmap cropped = Bitmap.createBitmap(bitmap, Math.max(ulx - paddingHoriz,0), Math.max(uly - paddingVert,0),
-                    Math.min(brx + paddingHoriz,bitmap.getWidth())- ulx , Math.min(bry + paddingVert,bitmap.getHeight())- uly );
+            Bitmap cropped = Bitmap.createBitmap(bitmapBW, Math.max(ulx,0), Math.max(uly,0),
+                    Math.min(brx , bitmapBW.getWidth())- ulx , Math.min(bry,bitmapBW.getHeight())- uly );
+
+
+            //Bitmap cropped = Bitmap.createBitmap(bitmapBW, Math.max(ulx - paddingHoriz,0), Math.max(uly - paddingVert,0),
+             //       Math.min(brx + paddingHoriz,bitmapBW.getWidth())- ulx , Math.min(bry + paddingVert,bitmapBW.getHeight())- uly );
+
+            //Bitmap cropped = Bitmap.createBitmap(bitmap, Math.max(ulx - paddingHoriz,0), Math.max(uly - paddingVert,0),
+             //       Math.min(brx + paddingHoriz,bitmap.getWidth())- ulx , Math.min(bry + paddingVert,bitmap.getHeight())- uly );
 
             // Start an async task to recognize this equation
             new OcrEquationAsyncTask(this.activity, this.baseApi, equationNumber, cropped,

@@ -26,6 +26,10 @@ public class ImageProccessingService {
 
     private final String TAG = "ImageProccessingService";
 
+    // How much to pad an equation rectangle (as a percentage of the rectangle size)
+    double paddingHorizPct = 0.05;
+    double paddingVertPct = 0.2;
+
     private static ImageProccessingService instance;
 
     public static ImageProccessingService getInstance() {
@@ -56,6 +60,7 @@ public class ImageProccessingService {
         Utils.bitmapToMat(bitmap, img);
 
         // Needed to prevent img from being treated as CV_8UC4, which MSER feature detector won't accept
+        //Imgproc.cvtColor(img, img, Imgproc.COLOR_BGR5652GRAY);
         Imgproc.cvtColor(img, img, Imgproc.COLOR_RGB2GRAY);
 
         MatOfKeyPoint mokp = new MatOfKeyPoint();
@@ -67,7 +72,6 @@ public class ImageProccessingService {
         List<KeyPoint> keypointsList = mokp.toList();
 
         for(KeyPoint keyPoint : keypointsList) {
-            // TODO: process keypoint (convert it into a rectangle)
             int rectanx1 = (int) (keyPoint.pt.x - 0.5 * keyPoint.size);
             int rectany1 = (int) (keyPoint.pt.y - 0.5 * keyPoint.size);
             // if keypoint at negative value (is that even possible?)
@@ -110,7 +114,7 @@ public class ImageProccessingService {
                 Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE);
 
         for (MatOfPoint matOfPoint : contour2) {
-            rectList.add(Imgproc.boundingRect(matOfPoint));
+            rectList.add(padRectangle(Imgproc.boundingRect(matOfPoint)));
             //Core.rectangle(img, rectan2.br(), rectan2.tl(), CONTOUR_COLOR);
         }
         /*for (int ind = 0; ind < contour2.size(); ind++) {
@@ -129,5 +133,20 @@ public class ImageProccessingService {
         }*/
 
         return rectList;
+    }
+
+    private Rect padRectangle(Rect rect) {
+
+        int ulx = (int) rect.tl().x;
+        int uly = (int) rect.tl().y;
+        int brx = (int) rect.br().x;
+        int bry = (int) rect.br().y;
+
+        Integer paddingHoriz = (int) ((brx - ulx) * paddingHorizPct);
+        Integer paddingVert = (int) ((bry - uly) * paddingVertPct);
+
+        return new Rect(Math.max(0, ulx - paddingHoriz), Math.max(0, uly - paddingVert),
+                2 * paddingHoriz + (brx - ulx), 2 * paddingVert + (bry - uly));
+
     }
 }

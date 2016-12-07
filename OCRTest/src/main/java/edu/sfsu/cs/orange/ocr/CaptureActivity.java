@@ -908,7 +908,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       characterWhitelist = OcrCharacterHelper.getWhitelist(prefs, sourceLanguageCodeOcr);
       
       prefs.registerOnSharedPreferenceChangeListener(listener);
-      
 
   }
   

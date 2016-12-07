@@ -9,6 +9,9 @@ public class EquationResult {
     // Number to identify which equation was solved
     private int equationNumber;
 
+    // The text of the equation that was OCR'd
+    private String ocrText;
+
     // Whether or not the equation was successfully solved
     private boolean success;
 
@@ -18,11 +21,20 @@ public class EquationResult {
     // The solution
     private Double solution;
 
-    public EquationResult(int equationNumber, Double solution, boolean success, String errorMessage) {
+    public EquationResult(int equationNumber, String ocrText, Double solution, boolean success, String errorMessage) {
         this.equationNumber = equationNumber;
+        this.ocrText = ocrText;
         this.success = success;
         this.errorMessage = errorMessage;
         this.solution = solution;
+    }
+
+    public String getOcrText() {
+        return ocrText;
+    }
+
+    public void setOcrText(String ocrText) {
+        this.ocrText = ocrText;
     }
 
     public int getEquationNumber() {

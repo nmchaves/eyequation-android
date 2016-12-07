@@ -14,10 +14,8 @@ import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -31,14 +29,16 @@ import com.googlecode.tesseract.android.TessBaseAPI;
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
 import org.opencv.core.Rect;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.util.List;
 
 import edu.sfsu.cs.orange.ocr.camera.CameraConfigurationManager;
 import edu.sfsu.cs.orange.ocr.camera.CameraManager;
-import edu.sfsu.cs.orange.ocr.camera.CameraPreviewCallback;
 import edu.sfsu.cs.orange.ocr.math.ExpressionParser;
 
 public class MainActivity extends Activity {
@@ -64,24 +64,33 @@ public class MainActivity extends Activity {
 
     private static Camera mCamera;
     private CameraConfigurationManager configManager;
+
+    // View Elements
     private FrameLayout previewFrame;
     private CameraPreview mPreview;
     private Button captureButton;
     private ImageView pictureView;
 
+    // The most recently captured image frame
     private Bitmap currentFrame;
     private Bitmap currentFrameRaw;
+    private Bitmap currentFrameBW;
 
+    // List of rectangles around each equation
     private List<Rect> equationRectangles;
-
-    private TessBaseAPI baseApi;
 
     private ProgressDialog dialog; // for initOcr - language download & unzip
     private ProgressDialog indeterminateDialog; // also for initOcr - init OCR engine
     private boolean isEngineReady;
 
-    private int pageSegmentationMode = TessBaseAPI.PageSegMode.PSM_SINGLE_LINE; //TessBaseAPI.PageSegMode.PSM_AUTO_OSD;
+    private TessBaseAPI baseApi;
+
+    // Set Tesseract as the OCR engine (don't use Cube)
     private int ocrEngineMode = TessBaseAPI.OEM_TESSERACT_ONLY;
+
+    // Tell Tesseract to treat its input as a single line of text
+    private int pageSegmentationMode = TessBaseAPI.PageSegMode.PSM_SINGLE_LINE; //TessBaseAPI.PageSegMode.PSM_AUTO_OSD;
+
     private String characterBlacklist;
     private String characterWhitelist;
 
@@ -109,10 +118,11 @@ public class MainActivity extends Activity {
             toast.show();
         }
 
-        //sourceLanguageReadable = LanguageCodeHelper.getOcrLanguageName(this, sourceLanguageCodeOcr);
         cameraManager = new CameraManager(getApplication());
 
         isEngineReady = false;
+
+        initCharacterBlacklistAndWhitelist();
 
         // Initialize the OCR engine
         File storageDirectory = getStorageDirectory();
@@ -124,6 +134,10 @@ public class MainActivity extends Activity {
 
     }
 
+    private void initCharacterBlacklistAndWhitelist() {
+        characterBlacklist = "";
+        characterWhitelist = "0123456789()-+x/";
+    }
 
     /** Finds the proper location on the SD card where we can save files. */
     private File getStorageDirectory() {
@@ -178,7 +192,6 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-
     // Callback for loading OpenCV using OpenCV Manager
     private BaseLoaderCallback mOvenCVLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -204,12 +217,15 @@ public class MainActivity extends Activity {
             // Set camera parameters
             Camera.Parameters params = c.getParameters();
 
-            // Continously try to focus the camera
+            // Continuously try to focus the camera
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
 
+            // In case of using preview frames:
             // Use NV21 picture format to conform with expected input from PlanarYUVLuminanceSource
             params.setPreviewFormat(ImageFormat.NV21);
-            //params.setPictureFormat(ImageFormat.NV21);
+
+            // If not using preview frames (i.e. using regular image frames)
+            //params.setPictureFormat(ImageFormat.RGB_565);
 
             c.setParameters(params);
         }
@@ -266,16 +282,40 @@ public class MainActivity extends Activity {
         int width = cameraResolution.x;
         int height = cameraResolution.y;
 
-        currentFrame = NV21BytesToGrayScaleBitmap(data, width, height);
+        currentFrameRaw = NV21BytesToGrayScaleBitmap(data, width, height);
+        //int[] pixels = convertYUV420_NV21toRGB8888(data, width, height);
+        //currentFrameRaw = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);
+        currentFrame = currentFrameRaw;
+        currentFrameBW = locallyAdaptiveThreshold(currentFrame);
 
+        // Display the captured image
         pictureView.setImageBitmap(currentFrame);
         pictureView.setVisibility(View.VISIBLE);
 
-        // Perform the rest of the pipeline
-        processImage(currentFrame, width, height);
+        // Perform the rest of the pipeline, including rectangle finding,
+        // OCR, and equation parsing
+        processImage(currentFrame, currentFrameBW, width, height);
     }
 
-    /*private Camera.PictureCallback mPictureCB = new Camera.PictureCallback() {
+    private Bitmap locallyAdaptiveThreshold(Bitmap gray) {
+        Bitmap newBitmap = Bitmap.createBitmap(gray.getWidth(), gray.getHeight(), Bitmap.Config.ARGB_8888);
+
+        Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
+        Utils.bitmapToMat(gray, mat);
+        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
+
+        Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
+
+        // Block size for thresholding. MUST BE AN ODD NUMBER or openCV will throw an exception!
+        int blockSize = 55;
+        Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, blockSize, 15);
+        Utils.matToBitmap(matBW, newBitmap);
+
+        return newBitmap;
+
+    }
+
+    private Camera.PictureCallback mPictureCB = new Camera.PictureCallback() {
 
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
@@ -285,6 +325,7 @@ public class MainActivity extends Activity {
 
             currentFrameRaw = BitmapFactory.decodeByteArray(data, 0, data.length);
             currentFrame = currentFrameRaw;
+            currentFrameBW = locallyAdaptiveThreshold(currentFrame);
             //PlanarYUVLuminanceSource lum = new PlanarYUVLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight(),
              //       0, 0,
               //      imgBitmap.getWidth(), imgBitmap.getHeight(), false);
@@ -295,28 +336,17 @@ public class MainActivity extends Activity {
 
             hideCameraPreview();
 
-            Point cameraResolution = configManager.getCameraResolution();
+            /*Point cameraResolution = configManager.getCameraResolution();
             width = cameraResolution.x;
-            height = cameraResolution.y;
+            height = cameraResolution.y;*/
 
-            // TODO: just try converting NV21 to jpg and back
-
-            // Start processing the image
-            //processImage(data, currentFrame);
-            currentFrame = NV21BytesToBitmap(data, width, height);
-            processImage(currentFrame, width, height);
+            processImage(currentFrame, currentFrameBW, width, height);
 
         }
-    };*/
+    };
 
     ProgressDialog getProgressDialog() {
         return indeterminateDialog;
-    }
-
-    private CaptureActivityHandler handler;
-
-    Handler getHandler() {
-        return handler;
     }
 
     /**
@@ -328,8 +358,8 @@ public class MainActivity extends Activity {
         return lum.renderCroppedGreyscaleBitmap();
     }
 
-    private void processImage(Bitmap bitmap, int width, int height) {
-        new FindEqnRectsAsyncTask(this, baseApi, bitmap, width, height)
+    private void processImage(Bitmap bitmap, Bitmap bitmapBW, int width, int height) {
+        new FindEqnRectsAsyncTask(this, baseApi, bitmap, bitmapBW, width, height)
                 .execute();
     }
 
@@ -350,15 +380,17 @@ public class MainActivity extends Activity {
         if(success) {
             // Toast the solution and draw it into the image
             double solution = equationResult.getSolution();
-            Toast toast = Toast.makeText(this, "Result: " + String.valueOf(solution), Toast.LENGTH_LONG);
+            Toast toast = Toast.makeText(this, "Result: " + String.valueOf(solution), Toast.LENGTH_SHORT);
             toast.show();
 
-            drawEquationResult(solution, equationResult.getEquationNumber());
+            drawEquationResult(success, equationResult.getOcrText(), solution, equationResult.getEquationNumber());
         }
         else {
             String errorMessage = equationResult.getErrorMessage();
             Toast toast = Toast.makeText(this, errorMessage, Toast.LENGTH_LONG);
             toast.show();
+
+            drawEquationResult(success, equationResult.getOcrText(), null, equationResult.getEquationNumber());
         }
     }
 
@@ -404,7 +436,6 @@ public class MainActivity extends Activity {
         }
         dialog = new ProgressDialog(this);
 
-
         // Display the name of the OCR engine we're initializing in the indeterminate progress dialog box
         indeterminateDialog = new ProgressDialog(this);
         indeterminateDialog.setTitle("Please wait");
@@ -447,7 +478,7 @@ public class MainActivity extends Activity {
 
     }
 
-    public void drawEquationResult(Double result, int equationNumber) {
+    public void drawEquationResult(boolean success, String ocrEquationStr, Double result, int equationNumber) {
 
         //Create a new image bitmap and attach a brand new canvas to it
         Bitmap newBitmap = Bitmap.createBitmap(currentFrame.getWidth(), currentFrame.getHeight(), Bitmap.Config.RGB_565);
@@ -458,16 +489,25 @@ public class MainActivity extends Activity {
 
         // Set up the paint to be drawn on the canvas
         Paint paint = new Paint();
-        paint.setColor(Color.GREEN);
-        paint.setStrokeWidth(22); // text size
+        if(success) {
+            paint.setColor(Color.GREEN);
+        }
+        else {
+            paint.setColor(Color.RED);
+        }
 
-        // Write the text near the top right of the rectangle
+        paint.setTextSize(14);
+        paint.setStrokeWidth(12);
+
+        // Write the text near the top left of the rectangle
         // TODO: if rect fills the entire bitmap, put the result inside of the rect
         // or toast the result. use the displayResultInsideRect
         Rect rect = equationRectangles.get(equationNumber);
-        String resultStr = String.valueOf(result);
-        int offsetRight = getOffsetRight(resultStr, rect);
-        canvas.drawText(resultStr, rect.x + rect.width - offsetRight, rect.y, paint);
+        String resultStr = ocrEquationStr + " = " + String.valueOf(result);
+        //int offsetRight = getOffsetRight(resultStr, rect);
+        //canvas.drawText(resultStr, rect.x + rect.width - offsetRight, rect.y, paint);
+        //int offsetLeft = rect.x;
+        canvas.drawText(resultStr, rect.x, rect.y, paint);
 
         // Display the image with rectangles on it
         pictureView.setImageDrawable(new BitmapDrawable(getResources(), newBitmap));
@@ -601,8 +641,8 @@ public class MainActivity extends Activity {
         }*/
         if (baseApi != null) {
             baseApi.setPageSegMode(pageSegmentationMode);
-            //baseApi.setVariable(TessBaseAPI.VAR_CHAR_BLACKLIST, characterBlacklist);
-            //baseApi.setVariable(TessBaseAPI.VAR_CHAR_WHITELIST, characterWhitelist);
+            baseApi.setVariable(TessBaseAPI.VAR_CHAR_BLACKLIST, characterBlacklist);
+            baseApi.setVariable(TessBaseAPI.VAR_CHAR_WHITELIST, characterWhitelist);
         }
 
         /*if (hasSurface) {
@@ -613,9 +653,9 @@ public class MainActivity extends Activity {
     }
 
 
-    private void processImageOld(byte[] data, Bitmap imgBitmap) {
+    //private void processImageOld(byte[] data, Bitmap imgBitmap) {
 
-        Bitmap newBitmap = imgBitmap; // = imgBitmap;
+        //Bitmap newBitmap = imgBitmap; // = imgBitmap;
         /*
         Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
         Utils.bitmapToMat(imgBitmap, mat);
@@ -639,7 +679,7 @@ public class MainActivity extends Activity {
         Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 15, 40);
         Utils.matToBitmap(matBW, imgBitmap);
         */
-        PlanarYUVLuminanceSource lum = new PlanarYUVLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight(),
+    /*       PlanarYUVLuminanceSource lum = new PlanarYUVLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight(),
                 0, 0,
                 imgBitmap.getWidth(), imgBitmap.getHeight(), false);
 
@@ -647,6 +687,61 @@ public class MainActivity extends Activity {
 
         new FindEqnRectsAsyncTask(this, baseApi, bitmap2, imgBitmap.getWidth(), imgBitmap.getHeight())
                 .execute();
+    }*/
+
+
+    // Adapted from:
+    // http://stackoverflow.com/questions/5272388/extract-black-and-white-image-from-android-cameras-nv21-format/12702836#12702836
+
+    /**
+     * Converts YUV420 NV21 to RGB8888
+     *
+     * @param data byte array on YUV420 NV21 format.
+     * @param width pixels width
+     * @param height pixels height
+     * @return a RGB8888 pixels int array. Where each int is a pixels ARGB.
+     */
+    public static int[] convertYUV420_NV21toRGB8888(byte [] data, int width, int height) {
+        int size = width*height;
+        int offset = size;
+        int[] pixels = new int[size];
+        int u, v, y1, y2, y3, y4;
+
+        // i percorre os Y and the final pixels
+        // k percorre os pixles U e V
+        for(int i=0, k=0; i < size; i+=2, k+=2) {
+            y1 = data[i  ]&0xff;
+            y2 = data[i+1]&0xff;
+            y3 = data[width+i  ]&0xff;
+            y4 = data[width+i+1]&0xff;
+
+            u = data[offset+k  ]&0xff;
+            v = data[offset+k+1]&0xff;
+            u = u-128;
+            v = v-128;
+
+            pixels[i  ] = convertYUVtoRGB(y1, u, v);
+            pixels[i+1] = convertYUVtoRGB(y2, u, v);
+            pixels[width+i  ] = convertYUVtoRGB(y3, u, v);
+            pixels[width+i+1] = convertYUVtoRGB(y4, u, v);
+
+            if (i!=0 && (i+2)%width==0)
+                i+=width;
+        }
+
+        return pixels;
+    }
+
+    private static int convertYUVtoRGB(int y, int u, int v) {
+        int r,g,b;
+
+        r = y + (int)1.402f*v;
+        g = y - (int)(0.344f*u +0.714f*v);
+        b = y + (int)1.772f*u;
+        r = r>255? 255 : r<0 ? 0 : r;
+        g = g>255? 255 : g<0 ? 0 : g;
+        b = b>255? 255 : b<0 ? 0 : b;
+        return 0xff000000 | (b<<16) | (g<<8) | r;
     }
 
 }

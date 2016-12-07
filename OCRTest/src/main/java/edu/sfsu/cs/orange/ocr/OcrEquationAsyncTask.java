@@ -20,8 +20,8 @@ public class OcrEquationAsyncTask extends AsyncTask {
     // The activity we need to communicate with
     MainActivity activity;
 
-    // Bitmap of the equation
-    Bitmap bitmap;
+    // Bitmap of the equation in black and white
+    Bitmap bitmapBW;
 
     // Equation number (used to identify the equation)
     private int equationNumber;
@@ -35,10 +35,10 @@ public class OcrEquationAsyncTask extends AsyncTask {
     private long timeRequired;
 
     public OcrEquationAsyncTask(MainActivity activity, TessBaseAPI baseApi,
-                                int equationNumber, Bitmap bitmap, int width, int height) {
+                                int equationNumber, Bitmap bitmapBW, int width, int height) {
         this.activity = activity;
         this.baseApi = baseApi;
-        this.bitmap = bitmap;
+        this.bitmapBW = bitmapBW;
         this.width = width;
         this.height = height;
         this.equationNumber = equationNumber;
@@ -49,33 +49,32 @@ public class OcrEquationAsyncTask extends AsyncTask {
 
         long start = System.currentTimeMillis();
 
-        Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(this.bitmap);
+        //Bitmap gray = ImageProccessingService.getInstance().convertToGrayScle(this.bitmap);
 
-        String textResult;
+        String ocrText;
 
-        // TODO: try to preprocess the bitmap to improve OCR performance
         try {
-            baseApi.setImage(ReadFile.readBitmap(bitmap));
-            textResult = baseApi.getUTF8Text();
+            baseApi.setImage(ReadFile.readBitmap(bitmapBW));
+            ocrText = baseApi.getUTF8Text();
             timeRequired = System.currentTimeMillis() - start;
 
             // Check for failure to recognize text
-            if (textResult == null || textResult.equals("")) {
+            if (ocrText == null || ocrText.equals("")) {
                 return false;
             }
-            Log.d("OcrEquationAsyncTask", "OCR text: " + textResult);
+            Log.d("OcrEquationAsyncTask", "OCR text: " + ocrText);
 
             Double result = null;
             EquationResult eqnResult;
             try {
-                result = ExpressionParser.parse(textResult);
+                result = ExpressionParser.parse(ocrText);
             } catch (Exception e) {
-                eqnResult = new EquationResult(equationNumber, null, false, "Unable to parse expression.");
+                eqnResult = new EquationResult(equationNumber, ocrText, null, false, "Unable to parse expression: " + ocrText);
                 sendEquationResult(eqnResult);
                 return false;
             }
 
-            eqnResult = new EquationResult(equationNumber, result, true, null);
+            eqnResult = new EquationResult(equationNumber, ocrText, result, true, null);
             sendEquationResult(eqnResult);
             return true;
 

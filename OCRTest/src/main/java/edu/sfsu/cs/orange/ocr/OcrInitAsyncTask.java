@@ -102,20 +102,6 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
     this.ocrEngineMode = ocrEngineMode;
   }
 
-
-  /*OcrInitAsyncTaskOld(CaptureActivity activity, TessBaseAPI baseApi, ProgressDialog dialog,
-                   ProgressDialog indeterminateDialog, String languageCode, String languageName,
-                   int ocrEngineMode) {
-    this.activity = activity;
-    this.context = activity.getBaseContext();
-    this.baseApi = baseApi;
-    this.dialog = dialog;
-    this.indeterminateDialog = indeterminateDialog;
-    this.languageCode = languageCode;
-    this.languageName = languageName;
-    this.ocrEngineMode = ocrEngineMode;
-  }*/
-
   @Override
   protected void onPreExecute() {
     super.onPreExecute();
@@ -125,7 +111,6 @@ final class OcrInitAsyncTask extends AsyncTask<String, String, Boolean> {
     dialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
     dialog.setCancelable(false);
     dialog.show();
-    //activity.setButtonVisibility(false);
   }
 
   /**
