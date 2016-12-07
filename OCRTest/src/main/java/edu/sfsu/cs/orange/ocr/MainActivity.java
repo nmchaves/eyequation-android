@@ -41,6 +41,9 @@ import edu.sfsu.cs.orange.ocr.camera.CameraConfigurationManager;
 import edu.sfsu.cs.orange.ocr.camera.CameraManager;
 import edu.sfsu.cs.orange.ocr.math.ExpressionParser;
 
+import static android.R.attr.height;
+import static android.R.attr.width;
+
 public class MainActivity extends Activity {
 
     private String TAG = "MainActivity";
@@ -75,6 +78,8 @@ public class MainActivity extends Activity {
     private Bitmap currentFrame;
     private Bitmap currentFrameRaw;
     private Bitmap currentFrameBW;
+    int currentFrameWidth;
+    int currentFrameHeight;
 
     // List of rectangles around each equation
     private List<Rect> equationRectangles;
@@ -276,10 +281,11 @@ public class MainActivity extends Activity {
         hideCameraPreview();
 
         Point cameraResolution = configManager.getCameraResolution();
-        int width = cameraResolution.x;
-        int height = cameraResolution.y;
 
-        currentFrameRaw = NV21BytesToGrayScaleBitmap(data, width, height);
+        currentFrameWidth = cameraResolution.x;
+        currentFrameHeight = cameraResolution.y;
+
+        currentFrameRaw = NV21BytesToGrayScaleBitmap(data, currentFrameWidth, currentFrameHeight);
         //int[] pixels = convertYUV420_NV21toRGB8888(data, width, height);
         //currentFrameRaw = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);
         currentFrame = currentFrameRaw;
@@ -291,7 +297,7 @@ public class MainActivity extends Activity {
 
         // Perform the rest of the pipeline, including rectangle finding,
         // OCR, and equation parsing
-        processImage(currentFrame, currentFrameBW, width, height);
+        processImage(currentFrame, currentFrameBW, currentFrameWidth, currentFrameHeight);
     }
 
     private Bitmap locallyAdaptiveThreshold(Bitmap gray) {
@@ -317,8 +323,8 @@ public class MainActivity extends Activity {
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
 
-            int width = camera.getParameters().getPreviewSize().width;
-            int height = camera.getParameters().getPreviewSize().height;
+            currentFrameWidth = camera.getParameters().getPreviewSize().width;
+            currentFrameHeight = camera.getParameters().getPreviewSize().height;
 
             currentFrameRaw = BitmapFactory.decodeByteArray(data, 0, data.length);
             currentFrame = currentFrameRaw;
@@ -333,11 +339,7 @@ public class MainActivity extends Activity {
 
             hideCameraPreview();
 
-            /*Point cameraResolution = configManager.getCameraResolution();
-            width = cameraResolution.x;
-            height = cameraResolution.y;*/
-
-            processImage(currentFrame, currentFrameBW, width, height);
+            processImage(currentFrame, currentFrameBW, currentFrameWidth, currentFrameHeight);
 
         }
     };
@@ -496,15 +498,14 @@ public class MainActivity extends Activity {
         paint.setTextSize(14);
         paint.setStrokeWidth(12);
 
-        // Write the text near the top left of the rectangle
+        // Write the text near the top left of the rectangle if there's room
         // TODO: if rect fills the entire bitmap, put the result inside of the rect
         // or toast the result. use the displayResultInsideRect
         Rect rect = equationRectangles.get(equationNumber);
         String resultStr = ocrEquationStr + " = " + String.valueOf(result);
-        //int offsetRight = getOffsetRight(resultStr, rect);
-        //canvas.drawText(resultStr, rect.x + rect.width - offsetRight, rect.y, paint);
-        //int offsetLeft = rect.x;
-        canvas.drawText(resultStr, rect.x, rect.y, paint);
+
+        Point drawResultAt = locationForResult(rect, resultStr);
+        canvas.drawText(resultStr, drawResultAt.x, drawResultAt.y, paint);
 
         // Display the image with rectangles on it
         pictureView.setImageDrawable(new BitmapDrawable(getResources(), newBitmap));
@@ -512,12 +513,24 @@ public class MainActivity extends Activity {
 
     }
 
-    public int getOffsetRight(String result, Rect rect) {
-        return 30;
-    }
-    // TODO.
-    public boolean displayResultInsideRect(Rect rect) {
-        return false;
+    private Point locationForResult(Rect rect, String resultStr) {
+
+        int locY;
+
+        if(rect.y > 10) {
+            // There's enough room to draw at the top
+            locY = rect.y - 2;
+        }
+        else if(rect.y + rect.height <= currentFrameHeight - 10) {
+            // There's enough room to draw below
+            locY = rect.y + rect.height + 16;
+        }
+        else {
+            // No room at top or bottom. Put the result inside the top left corner
+            locY = rect.y + 16;
+        }
+
+        return new Point(rect.x, locY);
     }
 
     public void redrawEquationRect(Rect rect, int equationNumber, int color) {

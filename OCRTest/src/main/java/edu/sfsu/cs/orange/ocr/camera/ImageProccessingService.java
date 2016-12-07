@@ -115,22 +115,7 @@ public class ImageProccessingService {
 
         for (MatOfPoint matOfPoint : contour2) {
             rectList.add(padRectangle(Imgproc.boundingRect(matOfPoint)));
-            //Core.rectangle(img, rectan2.br(), rectan2.tl(), CONTOUR_COLOR);
         }
-        /*for (int ind = 0; ind < contour2.size(); ind++) {
-            rectan2 = boundingRect(contour2.get(ind));
-            /*if (rectan2.area() > 0.5 * imgsize || rectan2.area() < 100
-                    || rectan2.width / rectan2.height < 2) {
-                Mat roi = new Mat(morbyte, rectan2);
-                roi.setTo(zeos);
-
-            } else {
-                Core.rectangle(img, rectan2.br(), rectan2.tl(), CONTOUR_COLOR);
-                Log.i(TAG, "Bounding box from " + rectan2.tl() + " to " + rectan2.br());
-                List<Point> corners = Arrays.asList(rectan2.tl(), rectan2.br());
-                rectList.add(corners);
-            }
-        }*/
 
         return rectList;
     }
