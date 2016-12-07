@@ -9,9 +9,15 @@ import com.googlecode.tesseract.android.TessBaseAPI;
 
 import org.opencv.core.Rect;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 
 import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
+
+import static android.R.attr.max;
 
 /**
  * Created by nicochaves on 12/4/16.
@@ -54,12 +60,184 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
             Log.d(TAG, "Failed to detect rectangles");
             return false;
         } else {
+
+            //mergeRectangles(rectList);
+
             drawEquationRectangles(rectList);
             DoOcrOnEquations(rectList);
         }
 
         return null;
     }
+
+    /*private void mergeRectangles(List<Rect> rectList) {
+        // Sort rectangles by their horizontal position
+
+        // Find horizontally connected (or almost connected) rectangles rectangles that need to be merged.
+        List<ArrayList<Integer>> connectedComps = new ArrayList<ArrayList<Integer>>();
+
+
+        {
+        List<List<Integer>> connectedComps = new List<List<Integer>>() {
+            @Override
+            public void add(int i, List<Integer> integers) {
+
+            }
+
+            @Override
+            public boolean add(List<Integer> integers) {
+                return false;
+            }
+
+            @Override
+            public boolean addAll(int i, Collection<? extends List<Integer>> collection) {
+                return false;
+            }
+
+            @Override
+            public boolean addAll(Collection<? extends List<Integer>> collection) {
+                return false;
+            }
+
+            @Override
+            public void clear() {
+
+            }
+
+            @Override
+            public boolean contains(Object o) {
+                return false;
+            }
+
+            @Override
+            public boolean containsAll(Collection<?> collection) {
+                return false;
+            }
+
+            @Override
+            public List<Integer> get(int i) {
+                return null;
+            }
+
+            @Override
+            public int indexOf(Object o) {
+                return 0;
+            }
+
+            @Override
+            public boolean isEmpty() {
+                return false;
+            }
+
+            @Override
+            public Iterator<List<Integer>> iterator() {
+                return null;
+            }
+
+            @Override
+            public int lastIndexOf(Object o) {
+                return 0;
+            }
+
+            @Override
+            public ListIterator<List<Integer>> listIterator() {
+                return null;
+            }
+
+            @Override
+            public ListIterator<List<Integer>> listIterator(int i) {
+                return null;
+            }
+
+            @Override
+            public List<Integer> remove(int i) {
+                return null;
+            }
+
+            @Override
+            public boolean remove(Object o) {
+                return false;
+            }
+
+            @Override
+            public boolean removeAll(Collection<?> collection) {
+                return false;
+            }
+
+            @Override
+            public boolean retainAll(Collection<?> collection) {
+                return false;
+            }
+
+            @Override
+            public List<Integer> set(int i, List<Integer> integers) {
+                return null;
+            }
+
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public List<List<Integer>> subList(int i, int i1) {
+                return null;
+            }
+
+            @Override
+            public Object[] toArray() {
+                return new Object[0];
+            }
+
+            @Override
+            public <T> T[] toArray(T[] ts) {
+                return null;
+            }
+        }
+
+        for(Rect rect: rectList) {
+            if(tlx < 0) {
+                tlx = rect.tl().x;
+                tly = rect.tl().y;
+                brx = rect.br().x;
+                bry = rect.br().y;
+            }
+            else {
+
+            }
+
+            if(rect.tl().x < tlx) {
+                tlx = rect.tl().x;
+            }
+
+        }
+    }
+
+    private Rect doMerge(List<Rect> rectList) {
+
+        double tlx = -1;
+        double tly = -1;
+        double brx = -1;
+        double bry = -1;
+
+        for(Rect rect: rectList) {
+            if(tlx < 0) {
+                tlx = rect.tl().x;
+                tly = rect.tl().y;
+                brx = rect.br().x;
+                bry = rect.br().y;
+            }
+            else {
+
+            }
+
+            if(rect.tl().x < tlx) {
+                tlx = rect.tl().x;
+            }
+
+        }
+
+    }*/
 
     private void displayNoRectMessage() {
         activity.runOnUiThread(new Runnable() {

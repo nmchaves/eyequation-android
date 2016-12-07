@@ -216,9 +216,7 @@ public class MainActivity extends Activity {
 
             // Set camera parameters
             Camera.Parameters params = c.getParameters();
-
-            // Continuously try to focus the camera
-            params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+            params.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
 
             // In case of using preview frames:
             // Use NV21 picture format to conform with expected input from PlanarYUVLuminanceSource
@@ -255,7 +253,6 @@ public class MainActivity extends Activity {
 
         // Add a listener to the Capture button
         captureButton = (Button) findViewById(R.id.button_capture);
-
         captureButton.setOnClickListener(
                 new View.OnClickListener() {
                     @Override
@@ -594,6 +591,11 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
 
+        /*surfaceView = (SurfaceView) findViewById(R.id.preview_view);
+        surfaceHolder = surfaceView.getHolder();
+        surfaceHolder.addCallback(this);
+        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);*/
+
         //retrievePreferences();
 
         // Set up the camera preview surface.
@@ -629,27 +631,15 @@ public class MainActivity extends Activity {
     void resumeOCR() {
         Log.d(TAG, "resumeOCR()");
 
-        //setButtonVisibility(true);
-        //shutterButton.setClickable(true);
-
         // This method is called when Tesseract has already been successfully initialized, so set
         // isEngineReady = true here.
         isEngineReady = true;
 
-        /*if (handler != null) {
-            handler.resetState();
-        }*/
         if (baseApi != null) {
             baseApi.setPageSegMode(pageSegmentationMode);
             baseApi.setVariable(TessBaseAPI.VAR_CHAR_BLACKLIST, characterBlacklist);
             baseApi.setVariable(TessBaseAPI.VAR_CHAR_WHITELIST, characterWhitelist);
         }
-
-        /*if (hasSurface) {
-            // The activity was paused but not stopped, so the surface still exists. Therefore
-            // surfaceCreated() won't be called, so init the camera here.
-            initCamera(surfaceHolder);
-        }*/
     }
 
 
