@@ -379,15 +379,15 @@ public class MainActivity extends Activity {
         if(success) {
             // Toast the solution and draw it into the image
             double solution = equationResult.getSolution();
-            Toast toast = Toast.makeText(this, "Result: " + String.valueOf(solution), Toast.LENGTH_SHORT);
-            toast.show();
+            //Toast toast = Toast.makeText(this, "Result: " + String.valueOf(solution), Toast.LENGTH_SHORT);
+            //toast.show();
 
             drawEquationResult(success, equationResult.getOcrText(), solution, equationResult.getEquationNumber());
         }
         else {
             String errorMessage = equationResult.getErrorMessage();
-            Toast toast = Toast.makeText(this, errorMessage, Toast.LENGTH_LONG);
-            toast.show();
+            //Toast toast = Toast.makeText(this, errorMessage, Toast.LENGTH_LONG);
+            //toast.show();
 
             drawEquationResult(success, equationResult.getOcrText(), null, equationResult.getEquationNumber());
         }
@@ -594,34 +594,31 @@ public class MainActivity extends Activity {
         Log.d(TAG, "onPause()");
 
         // Stop using the camera, to avoid conflicting with other camera-based apps
-        mCamera.release();
-        //cameraManager.closeDriver();
+        // Before releasing the camera, remove the preview callback to avoid a "method
+        // called after release()" error
+        if(mCamera != null) {
+            mCamera.stopPreview();
+
+            previewFrame.removeView(mPreview);
+            mCamera.setPreviewCallback(null);
+            mCamera.release();
+            mCamera = null;
+        }
 
         super.onPause();
     }
 
     @Override
     protected void onResume() {
+        Log.d(TAG, "onResume()");
         super.onResume();
 
-        /*surfaceView = (SurfaceView) findViewById(R.id.preview_view);
-        surfaceHolder = surfaceView.getHolder();
-        surfaceHolder.addCallback(this);
-        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);*/
-
-        //retrievePreferences();
-
-        // Set up the camera preview surface.
-        /*surfaceView = (SurfaceView) findViewById(R.id.preview_view);
-        surfaceHolder = surfaceView.getHolder();
-        if (!hasSurface) {
-            surfaceHolder.addCallback(this);
-            //surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        }*/
+        if(mCamera == null) {
+            Log.d(TAG, "re-initializing camera");
+            setupCameraPreview();
+        }
 
         // Do OCR engine initialization, if necessary
-        //boolean doNewInit = (baseApi == null) || !sourceLanguageCodeOcr.equals(previousSourceLanguageCodeOcr) ||
-        //        ocrEngineMode != previousOcrEngineMode;
         if (baseApi == null) {
             // Initialize the OCR engine
             File storageDirectory = getStorageDirectory();
