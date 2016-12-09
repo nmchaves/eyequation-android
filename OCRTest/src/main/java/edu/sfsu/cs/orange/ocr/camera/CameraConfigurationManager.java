@@ -27,8 +27,6 @@ import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
 
-import edu.sfsu.cs.orange.ocr.PreferencesActivity;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -53,6 +51,9 @@ public final class CameraConfigurationManager {
   private final Context context;
   private Point screenResolution;
   private Point cameraResolution;
+
+  private static final String KEY_AUTO_FOCUS = "preferences_auto_focus";
+  private static final String KEY_DISABLE_CONTINUOUS_FOCUS = "preferences_disable_continuous_focus";
 
   public CameraConfigurationManager(Context context) {
     this.context = context;
@@ -85,8 +86,8 @@ public final class CameraConfigurationManager {
     SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
     String focusMode = null;
-    if (prefs.getBoolean(PreferencesActivity.KEY_AUTO_FOCUS, true)) {
-      if (prefs.getBoolean(PreferencesActivity.KEY_DISABLE_CONTINUOUS_FOCUS, false)) {
+    if (prefs.getBoolean(KEY_AUTO_FOCUS, true)) {
+      if (prefs.getBoolean(KEY_DISABLE_CONTINUOUS_FOCUS, false)) {
         focusMode = findSettableValue(parameters.getSupportedFocusModes(),
             Camera.Parameters.FOCUS_MODE_AUTO);
       } else {

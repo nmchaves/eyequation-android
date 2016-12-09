@@ -10,19 +10,11 @@ import com.googlecode.tesseract.android.TessBaseAPI;
 import org.opencv.core.Rect;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 
 import edu.sfsu.cs.orange.ocr.camera.ImageProccessingService;
-
-import static android.R.attr.left;
-import static android.R.attr.max;
-import static android.R.attr.x;
-import static android.R.attr.y;
 
 /**
  * Created by nicochaves on 12/4/16.
@@ -109,13 +101,13 @@ public class FindEqnRectsAsyncTask extends AsyncTask {
     // In particular, compare the vertical centers and their horizontal closeness.
     private boolean shouldMerge(Rect rect1, Rect rect2) {
 
-        int verticalThresh = 30;
-        int horizThresh = 30;
+        int verticalThresh = 40;
+        int horizThresh = 40;
 
         int yMid1 = rect1.y + (int)((0.5) * rect1.height);
         int yMid2 = rect2.y + (int)((0.5) * rect2.height);
 
-        return rect2.x - (rect1.x+rect1.width) <= horizThresh &&
+        return Math.abs(rect2.x - (rect1.x+rect1.width)) <= horizThresh &&
                Math.abs(yMid2 - yMid1) <= verticalThresh;
     }
 

@@ -46,6 +46,16 @@ import static android.R.attr.width;
 
 public class MainActivity extends Activity {
 
+
+    /** Resource to use for data file downloads. */
+    static final String DOWNLOAD_BASE = "http://tesseract-ocr.googlecode.com/files/";
+
+    /** Download filename for orientation and script detection (OSD) data. */
+    static final String OSD_FILENAME = "tesseract-ocr-3.01.osd.tar";
+
+    /** Destination filename for orientation and script detection (OSD) data. */
+    static final String OSD_FILENAME_BASE = "osd.traineddata";
+
     private String TAG = "MainActivity";
 
     // Whether or not the camera is previewing. If camera is not previewing,
@@ -86,7 +96,6 @@ public class MainActivity extends Activity {
 
     private ProgressDialog dialog; // for initOcr - language download & unzip
     private ProgressDialog indeterminateDialog; // also for initOcr - init OCR engine
-    private boolean isEngineReady;
 
     private TessBaseAPI baseApi;
 
@@ -124,8 +133,6 @@ public class MainActivity extends Activity {
         }
 
         cameraManager = new CameraManager(getApplication());
-
-        isEngineReady = false;
 
         initCharacterBlacklistAndWhitelist();
 
@@ -427,7 +434,6 @@ public class MainActivity extends Activity {
      * @param languageName Name of the language for OCR, for example, "English"
      */
     private void initOcrEngine(File storageRoot, String languageCode, String languageName) {
-        isEngineReady = false;
 
         // Set up the dialog box for the thermometer-style download progress indicator
         if (dialog != null) {
@@ -641,10 +647,6 @@ public class MainActivity extends Activity {
     void resumeOCR() {
         Log.d(TAG, "resumeOCR()");
 
-        // This method is called when Tesseract has already been successfully initialized, so set
-        // isEngineReady = true here.
-        isEngineReady = true;
-
         if (baseApi != null) {
             baseApi.setPageSegMode(pageSegmentationMode);
             baseApi.setVariable(TessBaseAPI.VAR_CHAR_BLACKLIST, characterBlacklist);
@@ -652,47 +654,8 @@ public class MainActivity extends Activity {
         }
     }
 
-
-    //private void processImageOld(byte[] data, Bitmap imgBitmap) {
-
-        //Bitmap newBitmap = imgBitmap; // = imgBitmap;
-        /*
-        Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
-        Utils.bitmapToMat(imgBitmap, mat);
-        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
-
-        Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
-        Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 25, 40);
-        Utils.matToBitmap(matBW, newBitmap);
-        */
-        /*
-        CameraUtils
-                .buildLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight())
-                .renderCroppedGreyscaleBitmap();*/
-
-        /*
-        Mat mat = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC4);
-        Utils.bitmapToMat(imgBitmap, mat);
-        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
-
-        Mat matBW = new Mat(); //Mat.zeros(imgBitmap.getHeight(), imgBitmap.getWidth(), CvType.CV_8UC1);
-        Imgproc.adaptiveThreshold(mat, matBW, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 15, 40);
-        Utils.matToBitmap(matBW, imgBitmap);
-        */
-    /*       PlanarYUVLuminanceSource lum = new PlanarYUVLuminanceSource(data, imgBitmap.getWidth(), imgBitmap.getHeight(),
-                0, 0,
-                imgBitmap.getWidth(), imgBitmap.getHeight(), false);
-
-        Bitmap bitmap2 = lum.renderCroppedGreyscaleBitmap(); //getCameraManager().buildLuminanceSource(data, width, height).renderCroppedGreyscaleBitmap();
-
-        new FindEqnRectsAsyncTask(this, baseApi, bitmap2, imgBitmap.getWidth(), imgBitmap.getHeight())
-                .execute();
-    }*/
-
-
     // Adapted from:
     // http://stackoverflow.com/questions/5272388/extract-black-and-white-image-from-android-cameras-nv21-format/12702836#12702836
-
     /**
      * Converts YUV420 NV21 to RGB8888
      *

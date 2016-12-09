@@ -24,10 +24,8 @@ import android.graphics.Rect;
 import android.hardware.Camera;
 import android.os.Handler;
 import android.preference.PreferenceManager;
-import android.util.Log;
 import android.view.SurfaceHolder;
 import edu.sfsu.cs.orange.ocr.PlanarYUVLuminanceSource;
-import edu.sfsu.cs.orange.ocr.PreferencesActivity;
 
 import java.io.IOException;
 
@@ -50,7 +48,6 @@ public final class CameraManager {
   private final Context context;
   private final CameraConfigurationManager configManager;
   private Camera camera;
-  private AutoFocusManager autoFocusManager;
   private Rect framingRect;
   private Rect framingRectInPreview;
   private boolean initialized;
@@ -98,7 +95,7 @@ public final class CameraManager {
     configManager.setDesiredCameraParameters(theCamera);
     
     SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-    reverseImage = prefs.getBoolean(PreferencesActivity.KEY_REVERSE_IMAGE, false);
+    reverseImage = false;
   }
 
   /**
@@ -124,7 +121,6 @@ public final class CameraManager {
     if (theCamera != null && !previewing) {
       theCamera.startPreview();
       previewing = true;
-      autoFocusManager = new AutoFocusManager(context, camera);
     }
   }
 
@@ -132,10 +128,6 @@ public final class CameraManager {
    * Tells the camera to stop drawing preview frames.
    */
   public synchronized void stopPreview() {
-    if (autoFocusManager != null) {
-    	autoFocusManager.stop();
-    	autoFocusManager = null;
-    }
   	if (camera != null && previewing) {
       camera.stopPreview();
       previewCallback.setHandler(null, 0);
@@ -158,15 +150,7 @@ public final class CameraManager {
       camera.setOneShotPreviewCallback(previewCallback);
     }
   }
-  
-  /**
-   * Asks the camera hardware to perform an autofocus.
-   * @param delay Time delay to send with the request
-   */
-  public synchronized void requestAutoFocus(long delay) {
-  	autoFocusManager.start(delay);
-  }
-  
+
   /**
    * Calculates the framing rect which the UI should draw to show the user where to place the
    * barcode. This target helps with alignment as well as forces the user to hold the device
