@@ -1,10 +1,6 @@
-package edu.sfsu.cs.orange.ocr.math;
+package edu.stanford.ee.eyequation.math;
 
 import com.fathzer.soft.javaluator.DoubleEvaluator;
-
-import java.util.regex.Pattern;
-
-import static android.R.attr.format;
 
 /**
  * Created by nicochaves on 11/27/16.
