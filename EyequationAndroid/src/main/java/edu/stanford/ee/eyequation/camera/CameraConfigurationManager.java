@@ -71,15 +71,6 @@ public final class CameraConfigurationManager {
       params.setFocusMode(focusMode);
       params.setPreviewFormat(previewFormat);
 
-      /*
-      // In case of using preview frames:
-      // Use NV21 picture format to conform with expected input from PlanarYUVLuminanceSource
-      //params.setPreviewFormat(ImageFormat.NV21);
-
-      // If not using preview frames (i.e. using regular image frames)
-      //params.setPictureFormat(ImageFormat.RGB_565);
-      */
-
       c.setParameters(params);
     }
     catch (Exception e){

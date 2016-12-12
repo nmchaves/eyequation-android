@@ -76,31 +76,6 @@ public class OcrEquationAsyncTask extends AsyncTask {
             sendEquationResult(eqnResult);
             return true;
 
-            /*
-            ocrResult = new OcrResult();
-            ocrResult.setWordConfidences(baseApi.wordConfidences());
-            ocrResult.setMeanConfidence( baseApi.meanConfidence());
-            ocrResult.setRegionBoundingBoxes(baseApi.getRegions().getBoxRects());
-            ocrResult.setTextlineBoundingBoxes(baseApi.getTextlines().getBoxRects());
-            ocrResult.setWordBoundingBoxes(baseApi.getWords().getBoxRects());
-            ocrResult.setStripBoundingBoxes(baseApi.getStrips().getBoxRects());
-
-            // Iterate through the results.
-            final ResultIterator iterator = baseApi.getResultIterator();
-            int[] lastBoundingBox;
-            ArrayList<android.graphics.Rect> charBoxes = new ArrayList<android.graphics.Rect>();
-            iterator.begin();
-            do {
-                lastBoundingBox = iterator.getBoundingBox(TessBaseAPI.PageIteratorLevel.RIL_SYMBOL);
-                android.graphics.Rect lastRectBox = new android.graphics.Rect(lastBoundingBox[0], lastBoundingBox[1],
-                        lastBoundingBox[2], lastBoundingBox[3]);
-                charBoxes.add(lastRectBox);
-            } while (iterator.next(TessBaseAPI.PageIteratorLevel.RIL_SYMBOL));
-            iterator.delete();
-            ocrResult.setCharacterBoundingBoxes(charBoxes);
-            */
-
-
         } catch (RuntimeException e) {
             Log.e("OcrRecognizeAsyncTask", "Caught RuntimeException in request to Tesseract. Setting state to CONTINUOUS_STOPPED.");
             e.printStackTrace();

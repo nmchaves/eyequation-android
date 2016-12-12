@@ -1,2 +1,2 @@
-include ':OCRTest'
+include ':EyequationAndroid'
 include ':openCVLibrary2411'
