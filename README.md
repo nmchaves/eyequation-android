@@ -6,7 +6,7 @@ This app builds upon several projects: Tesseract OCR, android-ocr by rmtheis, an
 
 Tesseract OCR engine: [tess-two](https://github.com/rmtheis/tess-two)
 
-## Video (coming soon)
+## [Watch Basic Demo of the App](https://youtu.be/-9YvwMa_dKo)
 
 ## Installation
 
